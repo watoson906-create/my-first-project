@@ -736,26 +736,29 @@
     try {
       const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
       const data = await res.json();
-      if (data.error) return false;
-      const names = (data.models || []).map(m => m.name.replace('models/', ''));
-      // 優先順位: 2.0-flash > 1.5-flash-latest > 1.5-flash > 1.5-pro > pro
-      const priority = ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash-latest', 'gemini-1.5-flash-001', 'gemini-1.5-flash', 'gemini-1.5-pro-latest', 'gemini-pro'];
-      const found = priority.find(p => names.some(n => n === p || n.startsWith(p)));
-      if (found) {
-        geminiModel = found;
-        localStorage.setItem('gemini_model', found);
-        console.log('使用モデル:', found);
-        return true;
+      if (data.error) { console.error('モデル一覧取得エラー:', data.error.message); return false; }
+      // 実際のモデル名をそのまま使う
+      const names = (data.models || [])
+        .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent'))
+        .map(m => m.name.replace('models/', ''));
+      // 優先順位で最初に見つかったものを使用
+      const priority = ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash-latest',
+                        'gemini-1.5-flash-001', 'gemini-1.5-flash', 'gemini-1.5-pro-latest', 'gemini-pro'];
+      let chosen = null;
+      for (const p of priority) {
+        const exact = names.find(n => n === p);
+        if (exact) { chosen = exact; break; }
       }
-      // 見つからなければflashが含まれる最初のモデルを使う
-      const flash = names.find(n => n.includes('flash') || n.includes('pro'));
-      if (flash) {
-        geminiModel = flash;
-        localStorage.setItem('gemini_model', flash);
+      // 完全一致がなければflash/proを含むものを使う
+      if (!chosen) chosen = names.find(n => n.includes('flash')) || names.find(n => n.includes('pro')) || names[0];
+      if (chosen) {
+        geminiModel = chosen;
+        localStorage.setItem('gemini_model', chosen);
+        console.log('使用モデル:', chosen, '/ 全モデル:', names.join(', '));
         return true;
       }
       return false;
-    } catch(e) { return false; }
+    } catch(e) { console.error('detectGeminiModel失敗:', e); return false; }
   }
 
   function getKeywordReply(text) {
@@ -781,7 +784,7 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
+            systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
             contents: conversationHistory
           })
         }
@@ -917,8 +920,8 @@
       reply = await getGeminiReply(text);
     }
 
-    // APIが失敗またはキーなし → キーワードフォールバック
-    if (!reply || reply.startsWith('⚠️')) {
+    // エラーの場合はエラーをそのまま表示（原因を把握できるように）
+    if (!reply) {
       reply = getKeywordReply(text);
     }
 
