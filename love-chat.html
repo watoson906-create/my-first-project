@@ -798,8 +798,17 @@
   }
 
   // 起動時にAPIキーがなければモーダル表示
-  window.addEventListener('load', () => {
-    if (!getActiveApiKey()) showApiModal();
+  window.addEventListener('load', async () => {
+    if (!getActiveApiKey()) { showApiModal(); return; }
+    // 利用可能なモデルを自動チェック
+    try {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${getActiveApiKey()}`);
+      const data = await res.json();
+      const names = (data.models || []).map(m => m.name).filter(n => n.includes('flash') || n.includes('pro')).join('\n');
+      addMessage('利用可能モデル一覧:\n' + (names || 'なし'), false);
+    } catch(e) {
+      addMessage('モデル一覧取得失敗: ' + e.message, false);
+    }
   });
 
   function getTime() {
