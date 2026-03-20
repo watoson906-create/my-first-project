@@ -762,23 +762,20 @@
       const data = await res.json();
       console.log('Gemini response:', JSON.stringify(data, null, 2));
       if (data.error) {
-        console.error('Gemini error:', data.error.message);
         conversationHistory.pop();
-        return null;
+        return '⚠️Geminiエラー: ' + data.error.message;
       }
       const candidate = data.candidates?.[0];
       if (!candidate?.content?.parts?.[0]?.text) {
-        console.warn('No content in response. finishReason:', candidate?.finishReason);
         conversationHistory.pop();
-        return null;
+        return '⚠️Gemini応答なし: finishReason=' + (candidate?.finishReason || '不明');
       }
       const reply = candidate.content.parts[0].text.trim();
       conversationHistory.push({ role: 'model', parts: [{ text: reply }] });
       return reply;
     } catch (e) {
-      console.error('Gemini fetch error:', e);
       conversationHistory.pop();
-      return null;
+      return '⚠️通信エラー: ' + e.message;
     }
   }
 
@@ -883,10 +880,7 @@
 
     // APIが失敗またはキーなし → キーワードフォールバック
     if (!reply) {
-      console.warn('Gemini失敗 → キーワード返答に切替');
-      reply = getKeywordReply(text);
-    } else {
-      console.log('Gemini成功 ✓');
+      reply = '⚠️デバッグ: APIキー=' + (getActiveApiKey() ? 'あり' : 'なし') + ' / Gemini失敗 → キーワード返答';
     }
 
     hideTyping();
