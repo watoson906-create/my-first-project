@@ -259,6 +259,24 @@
     chatArea.scrollTop = chatArea.scrollHeight;
   }
 
+  function saveHistory(ch) {
+    localStorage.setItem('chat_' + ch.id, JSON.stringify({ msgs: ch.msgs, history: ch.history, lastMsg: ch.lastMsg, lastTime: ch.lastTime }));
+  }
+
+  function loadHistory() {
+    characters.forEach(ch => {
+      const saved = localStorage.getItem('chat_' + ch.id);
+      if (!saved) return;
+      try {
+        const d = JSON.parse(saved);
+        ch.msgs = d.msgs || [];
+        ch.history = d.history || [];
+        ch.lastMsg = d.lastMsg || ch.lastMsg;
+        ch.lastTime = d.lastTime || '';
+      } catch(e) {}
+    });
+  }
+
   function addMessage(text, isMe) {
     const ch = characters[currentIdx];
     const t = getTime();
@@ -266,6 +284,7 @@
     ch.lastMsg = text;
     ch.lastTime = t;
     renderMsg(text, isMe, t);
+    saveHistory(ch);
   }
 
   function showTyping() {
@@ -399,6 +418,7 @@
   }
 
   window.addEventListener('load', async () => {
+    loadHistory();
     renderFriendList();
     const key = GEMINI_API_KEY || localStorage.getItem('gemini_api_key') || '';
     if (!key) showApiModal();
