@@ -742,16 +742,19 @@
       const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
       const data = await res.json();
       if (data.error) { console.error('モデル一覧取得エラー:', data.error.message); return false; }
+      const EXCLUDE = ['tts', 'imagen', 'embedding', 'aqa', 'retrieval'];
       const names = (data.models || [])
         .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent'))
-        .map(m => m.name.replace('models/', ''));
+        .map(m => m.name.replace('models/', ''))
+        .filter(n => !EXCLUDE.some(ex => n.includes(ex)));
+      console.log('テキスト対応モデル一覧:', names.join(', '));
       const priority = ['gemini-1.5-flash-latest', 'gemini-1.5-flash-001', 'gemini-1.5-flash',
                         'gemini-2.0-flash-lite', 'gemini-2.0-flash', 'gemini-1.5-pro-latest', 'gemini-pro'];
       for (const p of priority) {
         if (names.find(n => n === p)) availableModels.push(p);
       }
-      // 優先リストに無い場合は残りのflash/proも追加（tts等の音声専用モデルは除外）
-      names.forEach(n => { if (!availableModels.includes(n) && (n.includes('flash') || n.includes('pro')) && !n.includes('tts')) availableModels.push(n); });
+      // 優先リストに無い場合は残りのflash/proも追加
+      names.forEach(n => { if (!availableModels.includes(n) && (n.includes('flash') || n.includes('pro'))) availableModels.push(n); });
       if (availableModels.length > 0) {
         geminiModel = availableModels[0];
         console.log('試行モデル候補:', availableModels.join(', '));
