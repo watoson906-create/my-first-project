@@ -797,15 +797,12 @@
         const msg = data.error.message || '';
         // クォータ超過・レート制限はフォールバック（エラー表示しない）
         if (code === 429 || msg.includes('quota') || msg.includes('RESOURCE_EXHAUSTED')) {
-          console.warn('Geminiクォータ超過 → キーワード返答にフォールバック');
-          return null;
+          return '⚠️クォータ超過: このAPIキーの無料枠が使えません。⚙️から別のキーを試してください。';
         }
-        // APIキー無効などその他のエラー
         if (code === 400 || code === 403) {
-          return '（AIに接続できません。⚙️からAPIキーを確認してください）';
+          return '⚠️APIキーエラー('+code+'): ⚙️からAPIキーを確認してください。';
         }
-        console.error('Geminiエラー:', code, msg);
-        return null; // その他はフォールバック
+        return '⚠️エラー('+code+'): ' + msg.substring(0, 100);
       }
       const candidate = data.candidates?.[0];
       if (!candidate?.content?.parts?.[0]?.text) {
