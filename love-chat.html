@@ -99,7 +99,10 @@
   <div class="screen" id="screenList">
     <div class="list-header">
       <div class="list-title">トーク</div>
-      <div class="list-settings" onclick="showApiModal()">⚙</div>
+      <div style="display:flex;gap:14px;align-items:center">
+        <div style="font-size:14px;cursor:pointer;opacity:0.85" onclick="resetAvatars()" title="画像を変える">🔄 画像</div>
+        <div class="list-settings" onclick="showApiModal()">⚙</div>
+      </div>
     </div>
     <div class="friend-list" id="friendListEl"></div>
     <div class="bottom-nav">
@@ -435,8 +438,30 @@
     if (currentIdx >= 0) addMessage(ok ? '✅ AI接続完了！なんでも話しかけてね😊' : '⚠️ 使えるモデルが見つかりませんでした。キーを確認してください。', false);
   }
 
+  async function resetAvatars() {
+    characters.forEach(ch => localStorage.removeItem('avatar_' + ch.id));
+    await fetchAvatars();
+    renderFriendList();
+  }
+
+  async function fetchAvatars() {
+    await Promise.all(characters.map(async ch => {
+      const saved = localStorage.getItem('avatar_' + ch.id);
+      if (saved) { ch.avatarUrl = saved; return; }
+      try {
+        const res = await fetch('https://api.waifu.pics/sfw/waifu');
+        const data = await res.json();
+        if (data.url) {
+          ch.avatarUrl = data.url;
+          localStorage.setItem('avatar_' + ch.id, data.url);
+        }
+      } catch(e) { /* DiceBearフォールバックのまま */ }
+    }));
+  }
+
   window.addEventListener('load', async () => {
     loadHistory();
+    await fetchAvatars();
     renderFriendList();
     const key = GEMINI_API_KEY || localStorage.getItem('gemini_api_key') || '';
     if (!key) showApiModal();
