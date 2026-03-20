@@ -741,7 +741,7 @@
   }
 
   async function getGeminiReply(userText) {
-    const apiKey = GEMINI_API_KEY || localStorage.getItem('gemini_api_key');
+    const apiKey = getActiveApiKey();
     if (!apiKey) { console.warn('APIキーなし'); return null; }
 
     console.log('Gemini呼び出し中...', userText);
@@ -789,6 +789,10 @@
     document.getElementById('apiModal').classList.remove('hidden');
   }
 
+  function getActiveApiKey() {
+    return GEMINI_API_KEY || localStorage.getItem('gemini_api_key') || '';
+  }
+
   function saveApiKey() {
     const key = document.getElementById('apiKeyInput').value.trim();
     if (!key) return alert('APIキーを入力してください');
@@ -798,7 +802,7 @@
 
   // 起動時にAPIキーがなければモーダル表示
   window.addEventListener('load', () => {
-    if (!localStorage.getItem('gemini_api_key')) showApiModal();
+    if (!getActiveApiKey()) showApiModal();
   });
 
   function getTime() {
@@ -872,10 +876,8 @@
 
     setTimeout(() => showTyping(), 300);
 
-    const apiKey = localStorage.getItem('gemini_api_key');
     let reply;
-
-    if (apiKey) {
+    if (getActiveApiKey()) {
       reply = await getGeminiReply(text);
     }
 
