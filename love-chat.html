@@ -927,14 +927,22 @@
     setTimeout(() => showTyping(), 300);
 
     let reply;
-    if (getActiveApiKey()) {
+    let fromAI = false;
+    const key = getActiveApiKey();
+    if (!key) {
+      reply = '⚠️APIキーが設定されていません。⚙️を押してAPIキーを入力してください。';
+    } else {
       reply = await getGeminiReply(text);
+      if (reply && !reply.startsWith('⚠️')) fromAI = true;
     }
 
-    // エラーの場合はエラーをそのまま表示（原因を把握できるように）
-    if (!reply) {
+    if (!reply || (!fromAI && !reply.startsWith('⚠️'))) {
       reply = getKeywordReply(text);
     }
+
+    // デバッグ用: 返答の出所を表示
+    if (fromAI) reply += '\n\u200b[AI]';
+    else if (!reply.startsWith('⚠️')) reply += '\n\u200b[KW]';
 
     hideTyping();
     addMessage(reply, false);
