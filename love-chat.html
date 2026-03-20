@@ -48,7 +48,10 @@
     .ch-name { font-size: 17px; font-weight: bold; }
     .ch-status { font-size: 12px; opacity: 0.85; margin-top: 1px; }
 
-    .chat-area { flex: 1; overflow-y: auto; padding: 16px 12px; background: transparent; display: flex; flex-direction: column; gap: 10px; background-size: cover; background-position: center top; background-attachment: local; }
+    .chat-area { flex: 1; overflow-y: auto; padding: 16px 12px; background: transparent; display: flex; flex-direction: column; gap: 10px; }
+    .chat-screen { position: relative; flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .chat-bg { position: absolute; inset: 0; background-size: cover; background-position: center center; z-index: 0; pointer-events: none; }
+    .chat-area, .input-area { position: relative; z-index: 1; }
     .chat-area::-webkit-scrollbar { width: 4px; }
     .chat-area::-webkit-scrollbar-thumb { background: #ddd; border-radius: 2px; }
 
@@ -124,7 +127,10 @@
       </div>
       <div style="font-size:20px;opacity:0.9;cursor:pointer">☎</div>
     </div>
-    <div class="chat-area" id="chatArea"></div>
+    <div class="chat-screen">
+      <div class="chat-bg" id="chatBg"></div>
+      <div class="chat-area" id="chatArea"></div>
+    </div>
     <div class="input-area">
       <div class="input-icon">＋</div>
       <textarea class="input-box" id="inputBox" placeholder="メッセージを入力..." rows="1"></textarea>
@@ -230,7 +236,7 @@
     document.getElementById('sendBtn').style.background = `linear-gradient(135deg,${ch.colorA},${ch.colorB})`;
 
     const chatArea = document.getElementById('chatArea');
-    chatArea.style.backgroundImage = `url(${ch.avatarUrl})`;
+    document.getElementById('chatBg').style.backgroundImage = `url(${ch.avatarUrl})`;
     chatArea.innerHTML = '<div class="date-label">今日</div>';
 
     if (ch.msgs.length === 0) {
@@ -458,7 +464,7 @@
         // チャット画面が開いていれば背景・ヘッダーも更新
         if (currentIdx === idx) {
           document.getElementById('chatAvatar').innerHTML = `<img src="${ch.avatarUrl}" alt="${ch.name}">`;
-          document.getElementById('chatArea').style.backgroundImage = `url(${ch.avatarUrl})`;
+          document.getElementById('chatBg').style.backgroundImage = `url(${ch.avatarUrl})`;
         }
         renderFriendList();
       }
