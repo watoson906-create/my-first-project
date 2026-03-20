@@ -226,6 +226,7 @@
       ch.msgs.push({ text: ch.greeting, isMe: false, time: t });
       ch.lastMsg = ch.greeting;
       ch.lastTime = t;
+      saveHistory(ch);
     }
     ch.msgs.forEach(m => renderMsg(m.text, m.isMe, m.time));
 
@@ -260,20 +261,29 @@
   }
 
   function saveHistory(ch) {
-    localStorage.setItem('chat_' + ch.id, JSON.stringify({ msgs: ch.msgs, history: ch.history, lastMsg: ch.lastMsg, lastTime: ch.lastTime }));
+    try {
+      localStorage.setItem('chat_' + ch.id, JSON.stringify({
+        msgs: ch.msgs,
+        history: ch.history,
+        lastMsg: ch.lastMsg,
+        lastTime: ch.lastTime
+      }));
+    } catch(e) { console.error('保存失敗:', e); }
   }
 
   function loadHistory() {
     characters.forEach(ch => {
-      const saved = localStorage.getItem('chat_' + ch.id);
-      if (!saved) return;
       try {
-        const d = JSON.parse(saved);
-        ch.msgs = d.msgs || [];
-        ch.history = d.history || [];
-        ch.lastMsg = d.lastMsg || ch.lastMsg;
-        ch.lastTime = d.lastTime || '';
-      } catch(e) {}
+        const raw = localStorage.getItem('chat_' + ch.id);
+        if (!raw) return;
+        const d = JSON.parse(raw);
+        if (Array.isArray(d.msgs) && d.msgs.length > 0) {
+          ch.msgs = d.msgs;
+          ch.history = Array.isArray(d.history) ? d.history : [];
+          ch.lastMsg = d.lastMsg || ch.lastMsg;
+          ch.lastTime = d.lastTime || '';
+        }
+      } catch(e) { console.error('読み込み失敗:', ch.id, e); }
     });
   }
 
