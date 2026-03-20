@@ -926,7 +926,7 @@
     if (!text) return;
 
     input.value = '';
-    input.style.height = 'auto';
+    input.dispatchEvent(new Event('input'));
     document.getElementById('sendBtn').disabled = true;
 
     addMessage(text, true);
