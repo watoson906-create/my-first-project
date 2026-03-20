@@ -793,19 +793,33 @@
       console.log('Gemini response:', JSON.stringify(data, null, 2));
       if (data.error) {
         conversationHistory.pop();
-        return '⚠️Geminiエラー: ' + data.error.message;
+        const code = data.error.code;
+        const msg = data.error.message || '';
+        // クォータ超過・レート制限はフォールバック（エラー表示しない）
+        if (code === 429 || msg.includes('quota') || msg.includes('RESOURCE_EXHAUSTED')) {
+          console.warn('Geminiクォータ超過 → キーワード返答にフォールバック');
+          return null;
+        }
+        // APIキー無効などその他のエラー
+        if (code === 400 || code === 403) {
+          return '（AIに接続できません。⚙️からAPIキーを確認してください）';
+        }
+        console.error('Geminiエラー:', code, msg);
+        return null; // その他はフォールバック
       }
       const candidate = data.candidates?.[0];
       if (!candidate?.content?.parts?.[0]?.text) {
         conversationHistory.pop();
-        return '⚠️Gemini応答なし: finishReason=' + (candidate?.finishReason || '不明');
+        console.warn('Gemini応答なし finishReason=', candidate?.finishReason);
+        return null;
       }
       const reply = candidate.content.parts[0].text.trim();
       conversationHistory.push({ role: 'model', parts: [{ text: reply }] });
       return reply;
     } catch (e) {
       conversationHistory.pop();
-      return '⚠️通信エラー: ' + e.message;
+      console.error('Gemini通信エラー:', e);
+      return null;
     }
   }
 
