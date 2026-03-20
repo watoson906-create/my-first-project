@@ -934,22 +934,16 @@
     setTimeout(() => showTyping(), 300);
 
     let reply;
-    let fromAI = false;
     const key = getActiveApiKey();
     if (!key) {
       reply = '⚠️APIキーが設定されていません。⚙️を押してAPIキーを入力してください。';
     } else {
       reply = await getGeminiReply(text);
-      if (reply && !reply.startsWith('⚠️')) fromAI = true;
     }
 
-    if (!reply || (!fromAI && !reply.startsWith('⚠️'))) {
+    if (!reply) {
       reply = getKeywordReply(text);
     }
-
-    // デバッグ用: 返答の出所を表示
-    if (fromAI) reply += '\n\u200b[AI]';
-    else if (!reply.startsWith('⚠️')) reply += '\n\u200b[KW]';
 
     hideTyping();
     addMessage(reply, false);
