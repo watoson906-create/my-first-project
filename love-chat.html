@@ -750,8 +750,8 @@
       for (const p of priority) {
         if (names.find(n => n === p)) availableModels.push(p);
       }
-      // 優先リストに無い場合は残りのflash/proも追加
-      names.forEach(n => { if (!availableModels.includes(n) && (n.includes('flash') || n.includes('pro'))) availableModels.push(n); });
+      // 優先リストに無い場合は残りのflash/proも追加（tts等の音声専用モデルは除外）
+      names.forEach(n => { if (!availableModels.includes(n) && (n.includes('flash') || n.includes('pro')) && !n.includes('tts')) availableModels.push(n); });
       if (availableModels.length > 0) {
         geminiModel = availableModels[0];
         console.log('試行モデル候補:', availableModels.join(', '));
