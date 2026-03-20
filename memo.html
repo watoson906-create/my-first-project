@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>メモアプリ</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'Hiragino Sans', sans-serif;
+    background: #f5f5f7;
+    color: #1d1d1f;
+    min-height: 100vh;
+  }
+
+  .app {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 32px 20px;
+  }
+
+  h1 {
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 24px;
+    color: #1d1d1f;
+  }
+
+  /* 入力エリア */
+  .input-area {
+    background: #fff;
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    margin-bottom: 24px;
+  }
+
+  .input-title {
+    width: 100%;
+    border: none;
+    outline: none;
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 10px;
+    color: #1d1d1f;
+    background: transparent;
+  }
+
+  .input-title::placeholder { color: #aaa; font-weight: 400; }
+
+  .input-body {
+    width: 100%;
+    border: none;
+    outline: none;
+    font-size: 14px;
+    resize: none;
+    color: #444;
+    background: transparent;
+    line-height: 1.6;
+    min-height: 72px;
+  }
+
+  .input-body::placeholder { color: #bbb; }
+
+  .input-footer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid #f0f0f0;
+    flex-wrap: wrap;
+  }
+
+  .tag-input {
+    flex: 1;
+    min-width: 120px;
+    border: 1px solid #e0e0e0;
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 13px;
+    outline: none;
+    color: #444;
+  }
+
+  .tag-input:focus { border-color: #007aff; }
+
+  .btn-add {
+    padding: 8px 20px;
+    background: #007aff;
+    color: #fff;
+    border: none;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+    margin-left: auto;
+  }
+
+  .btn-add:hover { background: #0066dd; }
+  .btn-add:disabled { background: #c7c7cc; cursor: default; }
+
+  /* 検索・フィルター */
+  .toolbar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .search-box {
+    flex: 1;
+    min-width: 180px;
+    position: relative;
+  }
+
+  .search-box input {
+    width: 100%;
+    padding: 10px 16px 10px 38px;
+    border: 1.5px solid #e0e0e0;
+    border-radius: 24px;
+    font-size: 14px;
+    outline: none;
+    background: #fff;
+    transition: border-color 0.2s;
+  }
+
+  .search-box input:focus { border-color: #007aff; }
+
+  .search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #aaa;
+    font-size: 16px;
+    pointer-events: none;
+  }
+
+  .filter-tags {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .filter-tag {
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1.5px solid #e0e0e0;
+    background: #fff;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+    color: #555;
+  }
+
+  .filter-tag.active {
+    background: #007aff;
+    border-color: #007aff;
+    color: #fff;
+  }
+
+  /* メモカード */
+  .memo-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 16px;
+  }
+
+  .memo-card {
+    background: #fff;
+    border-radius: 16px;
+    padding: 18px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    position: relative;
+    transition: box-shadow 0.2s, transform 0.2s;
+  }
+
+  .memo-card:hover {
+    box-shadow: 0 6px 24px rgba(0,0,0,0.12);
+    transform: translateY(-2px);
+  }
+
+  .memo-card-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #1d1d1f;
+    word-break: break-word;
+  }
+
+  .memo-card-body {
+    font-size: 13px;
+    color: #666;
+    line-height: 1.6;
+    word-break: break-word;
+    white-space: pre-wrap;
+    flex: 1;
+  }
+
+  .memo-card-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+
+  .tag-chip {
+    padding: 3px 10px;
+    background: #f0f0f5;
+    border-radius: 12px;
+    font-size: 11px;
+    color: #555;
+    font-weight: 500;
+  }
+
+  .memo-card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 4px;
+  }
+
+  .memo-date {
+    font-size: 11px;
+    color: #bbb;
+  }
+
+  .btn-delete {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #ccc;
+    font-size: 18px;
+    line-height: 1;
+    transition: color 0.2s;
+    padding: 2px 4px;
+  }
+
+  .btn-delete:hover { color: #ff3b30; }
+
+  /* 空状態 */
+  .empty {
+    text-align: center;
+    color: #bbb;
+    font-size: 15px;
+    padding: 60px 0;
+  }
+
+  .count {
+    font-size: 13px;
+    color: #aaa;
+    margin-bottom: 12px;
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useMemo, useEffect } = React;
+
+const STORAGE_KEY = 'memo-app-notes';
+
+function loadMemos() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+  } catch {
+    return [];
+  }
+}
+
+function saveMemos(memos) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(memos));
+}
+
+function parseTags(str) {
+  return str
+    .split(/[,、\s]+/)
+    .map(t => t.trim().replace(/^#/, ''))
+    .filter(t => t.length > 0);
+}
+
+function formatDate(iso) {
+  const d = new Date(iso);
+  return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function App() {
+  const [memos, setMemos] = useState(loadMemos);
+  const [title, setTitle] = useState('');
+  const [body, setBody] = useState('');
+  const [tagInput, setTagInput] = useState('');
+  const [search, setSearch] = useState('');
+  const [activeTag, setActiveTag] = useState(null);
+
+  useEffect(() => { saveMemos(memos); }, [memos]);
+
+  const allTags = useMemo(() => {
+    const set = new Set();
+    memos.forEach(m => m.tags.forEach(t => set.add(t)));
+    return [...set].sort();
+  }, [memos]);
+
+  const filtered = useMemo(() => {
+    return memos.filter(m => {
+      const q = search.toLowerCase();
+      const matchSearch = !q ||
+        m.title.toLowerCase().includes(q) ||
+        m.body.toLowerCase().includes(q) ||
+        m.tags.some(t => t.toLowerCase().includes(q));
+      const matchTag = !activeTag || m.tags.includes(activeTag);
+      return matchSearch && matchTag;
+    });
+  }, [memos, search, activeTag]);
+
+  function addMemo() {
+    if (!title.trim() && !body.trim()) return;
+    const memo = {
+      id: Date.now(),
+      title: title.trim(),
+      body: body.trim(),
+      tags: parseTags(tagInput),
+      createdAt: new Date().toISOString(),
+    };
+    setMemos(prev => [memo, ...prev]);
+    setTitle('');
+    setBody('');
+    setTagInput('');
+  }
+
+  function deleteMemo(id) {
+    setMemos(prev => prev.filter(m => m.id !== id));
+  }
+
+  function handleKeyDown(e) {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') addMemo();
+  }
+
+  return (
+    <div className="app">
+      <h1>📝 メモ</h1>
+
+      {/* 入力エリア */}
+      <div className="input-area" onKeyDown={handleKeyDown}>
+        <input
+          className="input-title"
+          placeholder="タイトル"
+          value={title}
+          onChange={e => setTitle(e.target.value)}
+        />
+        <textarea
+          className="input-body"
+          placeholder="メモを入力... (Cmd+Enter で追加)"
+          value={body}
+          onChange={e => setBody(e.target.value)}
+          rows={3}
+        />
+        <div className="input-footer">
+          <input
+            className="tag-input"
+            placeholder="タグ (カンマ区切り)"
+            value={tagInput}
+            onChange={e => setTagInput(e.target.value)}
+          />
+          <button
+            className="btn-add"
+            onClick={addMemo}
+            disabled={!title.trim() && !body.trim()}
+          >
+            追加
+          </button>
+        </div>
+      </div>
+
+      {/* 検索・フィルター */}
+      <div className="toolbar">
+        <div className="search-box">
+          <span className="search-icon">🔍</span>
+          <input
+            placeholder="検索..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
+        {allTags.length > 0 && (
+          <div className="filter-tags">
+            {allTags.map(tag => (
+              <button
+                key={tag}
+                className={`filter-tag ${activeTag === tag ? 'active' : ''}`}
+                onClick={() => setActiveTag(activeTag === tag ? null : tag)}
+              >
+                #{tag}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* メモ一覧 */}
+      {filtered.length > 0 && (
+        <p className="count">{filtered.length} 件</p>
+      )}
+
+      {filtered.length === 0 ? (
+        <div className="empty">
+          {memos.length === 0 ? 'メモがありません。最初のメモを追加してみましょう！' : '該当するメモが見つかりません'}
+        </div>
+      ) : (
+        <div className="memo-grid">
+          {filtered.map(m => (
+            <div key={m.id} className="memo-card">
+              {m.title && <div className="memo-card-title">{m.title}</div>}
+              {m.body && <div className="memo-card-body">{m.body}</div>}
+              {m.tags.length > 0 && (
+                <div className="memo-card-tags">
+                  {m.tags.map(t => (
+                    <span
+                      key={t}
+                      className="tag-chip"
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => setActiveTag(activeTag === t ? null : t)}
+                    >
+                      #{t}
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div className="memo-card-footer">
+                <span className="memo-date">{formatDate(m.createdAt)}</span>
+                <button className="btn-delete" onClick={() => deleteMemo(m.id)} title="削除">×</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
