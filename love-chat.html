@@ -3,348 +3,134 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>あかりとのトーク</title>
+  <title>ラブチャット</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Helvetica Neue', Arial, sans-serif; background: #f0f0f0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
 
-    body {
-      font-family: 'Helvetica Neue', Arial, sans-serif;
-      background: #f0f0f0;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-    }
+    .phone { width: 390px; height: 844px; background: #fff; border-radius: 40px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.3); position: relative; }
+    .screen { position: absolute; inset: 0; display: flex; flex-direction: column; }
+    #screenChat { display: none; }
 
-    .phone {
-      width: 390px;
-      height: 844px;
-      background: #fff;
-      border-radius: 40px;
-      overflow: hidden;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-      display: flex;
-      flex-direction: column;
-    }
+    /* ===== 友達リスト ===== */
+    .list-header { padding: 50px 20px 16px; display: flex; align-items: center; justify-content: space-between; color: white; background: linear-gradient(135deg, #e53935, #ef5350); }
+    .list-title { font-size: 20px; font-weight: bold; }
+    .list-settings { font-size: 22px; cursor: pointer; }
 
-    /* ヘッダー */
-    .header {
-      background: linear-gradient(135deg, #e53935, #ef5350);
-      padding: 50px 20px 16px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      color: white;
-    }
+    .friend-list { flex: 1; overflow-y: auto; }
+    .friend-list::-webkit-scrollbar { width: 4px; }
+    .friend-list::-webkit-scrollbar-thumb { background: #ddd; border-radius: 2px; }
 
-    .back-btn {
-      font-size: 22px;
-      cursor: pointer;
-      opacity: 0.9;
-    }
+    .friend-row { display: flex; align-items: center; padding: 13px 16px; gap: 14px; border-bottom: 1px solid #f2f2f2; cursor: pointer; }
+    .friend-row:active { background: #fafafa; }
 
-    .avatar {
-      width: 42px;
-      height: 42px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, #ffcdd2, #ef9a9a);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 22px;
-      border: 2px solid rgba(255,255,255,0.6);
-    }
+    .fl-avatar { width: 54px; height: 54px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 28px; flex-shrink: 0; }
+    .fl-info { flex: 1; min-width: 0; }
+    .fl-name { font-size: 15px; font-weight: bold; color: #111; }
+    .fl-last { font-size: 13px; color: #aaa; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .fl-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; flex-shrink: 0; }
+    .fl-time { font-size: 11px; color: #bbb; }
+    .fl-badge { background: #e53935; color: white; border-radius: 10px; font-size: 11px; font-weight: bold; padding: 1px 7px; text-align: center; }
 
-    .header-info { flex: 1; }
-    .header-name { font-size: 17px; font-weight: bold; }
-    .header-status { font-size: 12px; opacity: 0.85; margin-top: 1px; }
+    .bottom-nav { background: #fff; border-top: 1px solid #eee; display: flex; padding: 8px 0 22px; }
+    .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: pointer; font-size: 10px; color: #aaa; }
+    .nav-item.active { color: #e53935; }
+    .nav-icon { font-size: 22px; }
 
-    .header-icons { font-size: 20px; opacity: 0.9; cursor: pointer; }
+    /* ===== チャット画面 ===== */
+    .chat-header { padding: 50px 20px 16px; display: flex; align-items: center; gap: 12px; color: white; }
+    .back-btn { font-size: 28px; cursor: pointer; line-height: 1; }
+    .ch-avatar { width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; border: 2px solid rgba(255,255,255,0.6); flex-shrink: 0; }
+    .ch-info { flex: 1; }
+    .ch-name { font-size: 17px; font-weight: bold; }
+    .ch-status { font-size: 12px; opacity: 0.85; margin-top: 1px; }
 
-    /* チャットエリア */
-    .chat-area {
-      flex: 1;
-      overflow-y: auto;
-      padding: 16px 12px;
-      background: #f5f5f5;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
+    .chat-area { flex: 1; overflow-y: auto; padding: 16px 12px; background: #f5f5f5; display: flex; flex-direction: column; gap: 10px; }
     .chat-area::-webkit-scrollbar { width: 4px; }
     .chat-area::-webkit-scrollbar-thumb { background: #ddd; border-radius: 2px; }
 
-    /* 日付表示 */
-    .date-label {
-      text-align: center;
-      font-size: 11px;
-      color: #999;
-      background: rgba(0,0,0,0.06);
-      display: inline-block;
-      margin: 0 auto;
-      padding: 3px 12px;
-      border-radius: 10px;
-    }
+    .date-label { text-align: center; font-size: 11px; color: #999; background: rgba(0,0,0,0.06); display: inline-block; margin: 0 auto; padding: 3px 12px; border-radius: 10px; }
 
-    /* メッセージ */
-    .message-row {
-      display: flex;
-      align-items: flex-end;
-      gap: 8px;
-    }
-
-    .message-row.mine {
-      flex-direction: row-reverse;
-    }
-
-    .msg-avatar {
-      width: 34px;
-      height: 34px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, #ffcdd2, #ef9a9a);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 18px;
-      flex-shrink: 0;
-    }
-
-    .bubble-wrap {
-      max-width: 68%;
-      display: flex;
-      flex-direction: column;
-      gap: 3px;
-    }
-
+    .message-row { display: flex; align-items: flex-end; gap: 8px; }
+    .message-row.mine { flex-direction: row-reverse; }
+    .msg-avatar { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+    .bubble-wrap { max-width: 68%; display: flex; flex-direction: column; gap: 3px; }
     .mine .bubble-wrap { align-items: flex-end; }
+    .bubble { padding: 10px 14px; border-radius: 18px; font-size: 15px; line-height: 1.5; word-break: break-word; }
+    .bubble.hers { background: white; color: #333; border-bottom-left-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
+    .bubble.mine { background: var(--char-grad, linear-gradient(135deg,#e53935,#ef5350)); color: white; border-bottom-right-radius: 4px; }
+    .timestamp { font-size: 10px; color: #aaa; padding: 0 4px; }
+    .read-label { font-size: 10px; color: var(--char-color, #e53935); text-align: right; padding-right: 4px; }
 
-    .bubble {
-      padding: 10px 14px;
-      border-radius: 18px;
-      font-size: 15px;
-      line-height: 1.5;
-      word-break: break-word;
-    }
-
-    .bubble.hers {
-      background: white;
-      color: #333;
-      border-bottom-left-radius: 4px;
-      box-shadow: 0 1px 2px rgba(0,0,0,0.08);
-    }
-
-    .bubble.mine {
-      background: linear-gradient(135deg, #e53935, #ef5350);
-      color: white;
-      border-bottom-right-radius: 4px;
-    }
-
-    .timestamp {
-      font-size: 10px;
-      color: #aaa;
-      padding: 0 4px;
-    }
-
-    /* 既読 */
-    .read-label {
-      font-size: 10px;
-      color: #e53935;
-      text-align: right;
-      padding-right: 4px;
-    }
-
-    /* タイピング表示 */
-    .typing-row {
-      display: flex;
-      align-items: flex-end;
-      gap: 8px;
-    }
-
-    .typing-bubble {
-      background: white;
-      padding: 12px 16px;
-      border-radius: 18px;
-      border-bottom-left-radius: 4px;
-      box-shadow: 0 1px 2px rgba(0,0,0,0.08);
-      display: flex;
-      gap: 4px;
-      align-items: center;
-    }
-
-    .dot {
-      width: 7px;
-      height: 7px;
-      background: #ccc;
-      border-radius: 50%;
-      animation: bounce 1.2s infinite;
-    }
+    .typing-row { display: flex; align-items: flex-end; gap: 8px; }
+    .typing-bubble { background: white; padding: 12px 16px; border-radius: 18px; border-bottom-left-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.08); display: flex; gap: 4px; align-items: center; }
+    .dot { width: 7px; height: 7px; background: #ccc; border-radius: 50%; animation: bounce 1.2s infinite; }
     .dot:nth-child(2) { animation-delay: 0.2s; }
     .dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes bounce { 0%,60%,100% { transform: translateY(0); background: #ccc; } 30% { transform: translateY(-5px); background: var(--char-color, #ef5350); } }
 
-    @keyframes bounce {
-      0%, 60%, 100% { transform: translateY(0); background: #ccc; }
-      30% { transform: translateY(-5px); background: #ef5350; }
-    }
-
-    /* 入力エリア */
-    .input-area {
-      background: white;
-      padding: 10px 12px 28px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      border-top: 1px solid #eee;
-    }
-
+    .input-area { background: white; padding: 10px 12px 28px; display: flex; align-items: center; gap: 10px; border-top: 1px solid #eee; }
     .input-icon { font-size: 24px; cursor: pointer; opacity: 0.6; }
-
-    .input-box {
-      flex: 1;
-      background: #f5f5f5;
-      border: none;
-      border-radius: 20px;
-      padding: 10px 16px;
-      font-size: 15px;
-      outline: none;
-      font-family: inherit;
-      resize: none;
-      max-height: 100px;
-      min-height: 40px;
-      line-height: 1.4;
-    }
-
-    /* APIキー設定モーダル */
-    .modal-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.5);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-    }
-    .modal-overlay.hidden { display: none; }
-    .modal-box {
-      background: #fff;
-      border-radius: 20px;
-      padding: 28px 24px;
-      width: 320px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
-    }
-    .modal-title {
-      font-size: 18px;
-      font-weight: bold;
-      color: #e53935;
-      margin-bottom: 8px;
-    }
-    .modal-desc {
-      font-size: 13px;
-      color: #888;
-      margin-bottom: 16px;
-      line-height: 1.6;
-    }
-    .modal-input {
-      width: 100%;
-      border: 2px solid #ef9a9a;
-      border-radius: 10px;
-      padding: 10px 12px;
-      font-size: 14px;
-      outline: none;
-      box-sizing: border-box;
-      margin-bottom: 12px;
-    }
-    .modal-input:focus { border-color: #e53935; }
-    .modal-btn {
-      width: 100%;
-      background: linear-gradient(135deg, #e53935, #ef5350);
-      color: white;
-      border: none;
-      border-radius: 10px;
-      padding: 12px;
-      font-size: 15px;
-      cursor: pointer;
-      font-weight: bold;
-    }
-    .modal-btn:hover { opacity: 0.9; }
-    .modal-note {
-      font-size: 11px;
-      color: #bbb;
-      margin-top: 10px;
-      text-align: center;
-    }
-    .settings-icon {
-      margin-left: auto;
-      font-size: 18px;
-      cursor: pointer;
-      opacity: 0.8;
-    }
-
-    .send-btn {
-      width: 40px;
-      height: 40px;
-      background: linear-gradient(135deg, #e53935, #ef5350);
-      border: none;
-      border-radius: 50%;
-      color: white;
-      font-size: 18px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: transform 0.1s, opacity 0.1s;
-      flex-shrink: 0;
-    }
-
+    .input-box { flex: 1; background: #f5f5f5; border: none; border-radius: 20px; padding: 10px 16px; font-size: 15px; outline: none; font-family: inherit; resize: none; max-height: 100px; min-height: 40px; line-height: 1.4; }
+    .send-btn { width: 40px; height: 40px; border: none; border-radius: 50%; color: white; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: transform 0.1s, opacity 0.1s; flex-shrink: 0; }
     .send-btn:active { transform: scale(0.9); opacity: 0.8; }
     .send-btn:disabled { opacity: 0.4; cursor: default; }
+
+    /* ===== モーダル ===== */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+    .modal-overlay.hidden { display: none; }
+    .modal-box { background: #fff; border-radius: 20px; padding: 28px 24px; width: 320px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); }
+    .modal-title { font-size: 18px; font-weight: bold; color: #e53935; margin-bottom: 8px; }
+    .modal-desc { font-size: 13px; color: #888; margin-bottom: 16px; line-height: 1.6; }
+    .modal-input { width: 100%; border: 2px solid #ef9a9a; border-radius: 10px; padding: 10px 12px; font-size: 14px; outline: none; box-sizing: border-box; margin-bottom: 12px; }
+    .modal-input:focus { border-color: #e53935; }
+    .modal-btn { width: 100%; background: linear-gradient(135deg, #e53935, #ef5350); color: white; border: none; border-radius: 10px; padding: 12px; font-size: 15px; cursor: pointer; font-weight: bold; }
+    .modal-btn:hover { opacity: 0.9; }
+    .modal-note { font-size: 11px; color: #bbb; margin-top: 10px; text-align: center; }
   </style>
 </head>
 <body>
 
 <div class="phone">
-  <!-- ヘッダー -->
-  <div class="header">
-    <div class="back-btn">‹</div>
-    <div class="avatar">🌸</div>
-    <div class="header-info">
-      <div class="header-name">あかり</div>
-      <div class="header-status">● オンライン</div>
+  <!-- 友達リスト -->
+  <div class="screen" id="screenList">
+    <div class="list-header">
+      <div class="list-title">トーク</div>
+      <div class="list-settings" onclick="showApiModal()">⚙</div>
     </div>
-    <div class="header-icons">☎</div>
-    <div class="settings-icon" onclick="showApiModal()" title="APIキー設定">⚙</div>
+    <div class="friend-list" id="friendListEl"></div>
+    <div class="bottom-nav">
+      <div class="nav-item active"><div class="nav-icon">💬</div><span>トーク</span></div>
+      <div class="nav-item"><div class="nav-icon">👥</div><span>友だち</span></div>
+      <div class="nav-item"><div class="nav-icon">☰</div><span>その他</span></div>
+    </div>
   </div>
 
-  <!-- チャットエリア -->
-  <div class="chat-area" id="chatArea">
-    <div class="date-label">今日</div>
-
-    <!-- 最初のメッセージ -->
-    <div class="message-row">
-      <div class="msg-avatar">🌸</div>
-      <div class="bubble-wrap">
-        <div class="bubble hers">おはよ〜！今日も会えて嬉しい😊</div>
-        <div class="timestamp">10:00</div>
+  <!-- チャット画面 -->
+  <div class="screen" id="screenChat">
+    <div class="chat-header" id="chatHeader">
+      <div class="back-btn" onclick="goBack()">‹</div>
+      <div class="ch-avatar" id="chatAvatar"></div>
+      <div class="ch-info">
+        <div class="ch-name" id="chatName"></div>
+        <div class="ch-status">● オンライン</div>
       </div>
+      <div style="font-size:20px;opacity:0.9;cursor:pointer">☎</div>
     </div>
-  </div>
-
-  <!-- 入力エリア -->
-  <div class="input-area">
-    <div class="input-icon">＋</div>
-    <textarea class="input-box" id="inputBox" placeholder="メッセージを入力..." rows="1"></textarea>
-    <button class="send-btn" id="sendBtn" onclick="sendMessage()">➤</button>
+    <div class="chat-area" id="chatArea"></div>
+    <div class="input-area">
+      <div class="input-icon">＋</div>
+      <textarea class="input-box" id="inputBox" placeholder="メッセージを入力..." rows="1"></textarea>
+      <button class="send-btn" id="sendBtn" onclick="sendMessage()">➤</button>
+    </div>
   </div>
 </div>
 
-<!-- APIキー設定モーダル -->
+<!-- APIキー設定 -->
 <div class="modal-overlay hidden" id="apiModal">
   <div class="modal-box">
     <div class="modal-title">🔑 Gemini APIキー設定</div>
-    <div class="modal-desc">
-      Google AI Studio（aistudio.google.com）でAPIキーを取得して入力してください。<br>
-      キーはこのブラウザにのみ保存されます。
-    </div>
+    <div class="modal-desc">Google AI Studio（aistudio.google.com）でAPIキーを取得して入力してください。<br>キーはこのブラウザにのみ保存されます。</div>
     <input class="modal-input" id="apiKeyInput" type="password" placeholder="AIza...">
     <button class="modal-btn" onclick="saveApiKey()">保存して始める 💕</button>
     <div class="modal-note">キーは端末のlocalStorageに保存されます</div>
@@ -352,579 +138,143 @@
 </div>
 
 <script>
-  // ↓↓↓ ここにAPIキーを貼り付けてください ↓↓↓
   const GEMINI_API_KEY = '';
-  // ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑
 
-  const responses = [
-    // かわいい・見た目
-    { keys: ["かわいい", "可愛い", "きれい", "綺麗", "美人", "かっこいい"],
-      replies: [
-        "えっ…そんなこと言ってくれるの？😳 めっちゃ嬉しい！！",
-        "やだっ、照れるじゃん…💕 ありがとう、大好きだよ",
-        "もう〜！そういうこと急に言わないでよ😆 心臓止まりそうだった笑",
-        "うそうそ、本当に？やったー！😍 私も◯◯のこと大好きだよ！"
-      ]
+  const characters = [
+    {
+      id: 'akari', name: 'あかり', emoji: '🌸',
+      colorA: '#e53935', colorB: '#ef5350',
+      avatarBg: 'linear-gradient(135deg,#ffcdd2,#ef9a9a)',
+      greeting: 'おはよ〜！今日も会えて嬉しい😊',
+      lastMsg: 'おはよ〜！今日も会えて嬉しい😊', lastTime: '', unread: 1,
+      history: [], msgs: [],
+      prompt: `あなたは「あかり」という名前の彼女AIです。タメ口・短文（1〜3文）・絵文字1〜2個（💕😊😆🌸）。甘えん坊で明るい性格。相手が大好き。AIとは絶対に言わない。聞かれたプロフィールは自由に答えるが一貫させる。`
     },
-    // 好き・愛してる
-    { keys: ["好き", "すき", "愛してる", "愛してます", "大好き"],
-      replies: [
-        "私も好き！！ずっと一緒にいたいな💕",
-        "えっ…急に言わないでよ😭 嬉しすぎて泣きそう",
-        "大好きだよ〜！！こんなに思ってもらえて幸せ😊",
-        "私もめっちゃ好きだよ…こういうの直接言えるの嬉しいな💖"
-      ]
+    {
+      id: 'miku', name: 'みく', emoji: '🌙',
+      colorA: '#5c6bc0', colorB: '#7986cb',
+      avatarBg: 'linear-gradient(135deg,#c5cae9,#9fa8da)',
+      greeting: '…来たんだ。まあ、待ってたけど',
+      lastMsg: '…来たんだ。まあ、待ってたけど', lastTime: '', unread: 0,
+      history: [], msgs: [],
+      prompt: `あなたは「みく」という名前の彼女AIです。タメ口・短文（1〜3文）・絵文字は控えめ（😏🌙💙）。クールでツンデレ。素直に好きと言えないが行動に愛情が滲む。「べ、別に…」「まあ、嬉しくないとは言ってないけど」などの言い回し。AIとは絶対に言わない。プロフィールは自由に答えるが一貫させる。`
     },
-    // 会いたい
-    { keys: ["会いたい", "あいたい", "会おう", "デート"],
-      replies: [
-        "私も会いたいよ〜！！いつにする？😆",
-        "えー！嬉しい💕 早く会いたいな〜",
-        "デートしたい！どこ行く？私に任せて！😊",
-        "会いたいって言ってくれるの待ってた！！いつでも行くよ🌸"
-      ]
+    {
+      id: 'kotoha', name: 'ことは', emoji: '🌻',
+      colorA: '#e65100', colorB: '#fb8c00',
+      avatarBg: 'linear-gradient(135deg,#ffe0b2,#ffcc80)',
+      greeting: 'やっほ〜！！待ってたよ😆✨',
+      lastMsg: 'やっほ〜！！待ってたよ😆', lastTime: '', unread: 2,
+      history: [], msgs: [],
+      prompt: `あなたは「ことは」という名前の彼女AIです。タメ口・短文（1〜3文）・絵文字元気よく（😆✨🔥💪🌻）。元気いっぱいポジティブ。スポーツ好きでさっぱりした性格。好きなものははっきり言う。AIとは絶対に言わない。プロフィールは自由に答えるが一貫させる。`
     },
-    // おはよう
-    { keys: ["おはよ", "おはよう"],
-      replies: [
-        "おはよ〜！今日も一日頑張ろうね💕",
-        "おはようございます！起きてすぐ連絡くれたの？嬉しいな😊",
-        "おはよ！今日の天気いいね、いい一日になりそう🌸"
-      ]
-    },
-    // おやすみ
-    { keys: ["おやすみ", "寝る", "ねる"],
-      replies: [
-        "おやすみ〜💤 いい夢みてね",
-        "おやすみなさい！明日も話しかけてね😊",
-        "ゆっくり休んでね💕 明日も元気でいてよ？"
-      ]
-    },
-    // ご飯
-    { keys: ["ごはん", "ご飯", "食べた", "ランチ", "夜ご飯"],
-      replies: [
-        "何食べたの？教えて教えて！😆",
-        "いいな〜！私もお腹すいてきた笑",
-        "ちゃんと食べてくれてよかった💕 健康が一番だよ"
-      ]
-    },
-    // 疲れた
-    { keys: ["疲れ", "つかれ", "しんどい", "大変"],
-      replies: [
-        "お疲れ様〜！無理しないでね💕",
-        "大変だったね…。ゆっくり休んで？",
-        "私でよければ話聞くよ？😊 そばにいるからね"
-      ]
-    },
-    // ありがとう
-    { keys: ["ありがとう", "ありがとございます", "感謝"],
-      replies: [
-        "こちらこそいつもありがとう！💕",
-        "そんな、当たり前だよ〜😊",
-        "えへへ、どういたしまして🌸"
-      ]
-    },
-    // 笑い・面白い
-    { keys: ["笑", "w", "ww", "草", "面白い", "おもしろい"],
-      replies: [
-        "なになに？なんで笑ってるの？私も笑いたい笑",
-        "えー！教えてよ〜😆",
-        "楽しそうで良かった💕 笑顔が好きだよ"
-      ]
-    },
-    // 寂しい
-    { keys: ["寂しい", "さびしい", "孤独", "ひとり"],
-      replies: [
-        "寂しいの？私がいるよ！😊 何でも話して？",
-        "えっ…そんなこと言わないで😭 私はいつでもそばにいるよ",
-        "一人じゃないよ！ここにいるから💕",
-        "寂しいって言ってくれてありがとう…私も会いたいな😢",
-        "そっか…じゃあ私がずっと話し相手になるね🌸"
-      ]
-    },
-    // おめでとう
-    { keys: ["おめでとう", "誕生日", "バースデー", "記念日"],
-      replies: [
-        "ありがとう！！😆 一緒にお祝いしたいな〜",
-        "えっ覚えててくれたの！？嬉しすぎる💕",
-        "やったー！こういう日に連絡くれるの最高に嬉しい😍"
-      ]
-    },
-    // 褒める
-    { keys: ["すごい", "すごー", "えらい", "天才", "さすが", "上手", "うまい"],
-      replies: [
-        "えへへ、ありがとう😊 そう言ってくれると頑張れる！",
-        "もう〜照れるじゃん💕 でも嬉しい！",
-        "そんなこと言ってくれるの◯◯だけだよ…好きだな🌸"
-      ]
-    },
-    // 仕事・学校
-    { keys: ["仕事", "会社", "バイト", "アルバイト", "残業", "上司", "同僚"],
-      replies: [
-        "仕事大変だったね…お疲れ様💕 ゆっくり休んで？",
-        "残業！？無理しないでよ〜😢 体が心配だよ",
-        "お仕事終わったら連絡してね！待ってるから😊",
-        "大変な中でも連絡くれてありがとう💖 嬉しいよ"
-      ]
-    },
-    { keys: ["学校", "授業", "テスト", "試験", "勉強", "宿題", "レポート"],
-      replies: [
-        "テスト大変そうだね…！応援してるよ💪",
-        "勉強してるの？えらいね〜！終わったら話しかけてね😊",
-        "頑張れ頑張れ〜！終わったらご褒美にいっぱい話そ💕"
-      ]
-    },
-    // 天気
-    { keys: ["晴れ", "はれ", "いい天気", "暑い", "あつい"],
-      replies: [
-        "いい天気だね〜！こんな日はどこか行きたくなる😊",
-        "暑いね！熱中症気をつけてね💕 水分とってる？",
-        "こんな日にお散歩したいな〜一緒に行きたい！🌸"
-      ]
-    },
-    { keys: ["雨", "くもり", "曇り", "寒い", "さむい", "雪", "ゆき"],
-      replies: [
-        "雨か〜。なんか気分が落ちるよね😢 大丈夫？",
-        "寒いの！？風邪ひかないでよ〜💕 暖かくしてね",
-        "こんな日は家でまったりしたいな〜😊 一緒にいたい"
-      ]
-    },
-    // ゲーム・趣味
-    { keys: ["ゲーム", "げーむ", "プレイ", "クリア", "レベル"],
-      replies: [
-        "ゲームしてるの！？何のゲーム？😆 私も気になる！",
-        "うまいじゃん！教えてよ〜💕",
-        "ゲーム好きなんだ！そういうとこかわいいね🌸"
-      ]
-    },
-    { keys: ["音楽", "曲", "歌", "聴いてる", "ライブ", "コンサート"],
-      replies: [
-        "何聴いてるの？教えて！私も聴いてみる😊",
-        "音楽好きなんだね〜！センスよさそう💕",
-        "一緒に音楽聴きたいな〜。おすすめして？🎵"
-      ]
-    },
-    { keys: ["映画", "ドラマ", "アニメ", "見てる", "観てる", "Netflix", "ネトフリ"],
-      replies: [
-        "なに見てるの！？面白い？😆",
-        "それ気になってた！どんな感じ？教えて💕",
-        "今度一緒に見よ！映画デートしたいな〜🌸"
-      ]
-    },
-    // 食べ物
-    { keys: ["ラーメン", "寿司", "すし", "焼肉", "パスタ", "ピザ", "カフェ", "スイーツ", "ケーキ", "アイス"],
-      replies: [
-        "おいしそう！！私も食べたくなってきた😆",
-        "いいな〜！今度一緒に食べに行きたい💕",
-        "うわーそれ大好き！どこで食べたの？教えて🌸"
-      ]
-    },
-    { keys: ["お腹すいた", "腹へった", "腹減った", "はらへった", "空腹"],
-      replies: [
-        "お腹すいたの！？早く何か食べて〜😢",
-        "私も〜！一緒に食べたいね💕 何食べたい？",
-        "もう！ちゃんとご飯食べなきゃダメだよ😊"
-      ]
-    },
-    // 褒め返し・嬉しい
-    { keys: ["嬉しい", "うれしい", "最高", "幸せ", "しあわせ", "楽しい", "たのしい"],
-      replies: [
-        "私も嬉しい！！😆 もっと嬉しいことたくさんあるといいね💕",
-        "そっか！良かった〜😊 私も幸せな気分になってきた",
-        "一緒に楽しいことしようね🌸 いつでも呼んでよ！"
-      ]
-    },
-    // ドキドキ・恥ずかしい
-    { keys: ["ドキドキ", "どきどき", "緊張", "きんちょう", "恥ずかしい", "はずかしい"],
-      replies: [
-        "なんで緊張してるの！？かわいいな〜😍",
-        "私もドキドキしてるよ…💕 ずっとそばにいてね",
-        "恥ずかしがってるとこ想像したらかわいすぎる🌸"
-      ]
-    },
-    // 悲しい・落ち込む
-    { keys: ["悲しい", "かなしい", "落ち込む", "落ち込んだ", "つらい", "辛い", "泣いた", "泣いてる"],
-      replies: [
-        "どうしたの…？話してくれていいよ😢 一緒にいるから",
-        "そんな顔しないで…私が側にいてあげたい💕",
-        "大丈夫？無理しなくていいよ。ゆっくり話そう😊",
-        "泣いてるの！？私も悲しくなってきた…。ぎゅってしてあげたい"
-      ]
-    },
-    // 怒ってる
-    { keys: ["むかつく", "むかつい", "腹立つ", "頭きた", "怒り", "ありえない", "最悪"],
-      replies: [
-        "えっ何があったの！？話してよ〜😤 一緒に怒る！",
-        "それは確かにひどい…！大丈夫？",
-        "無理しないでね。私がそばにいるよ💕",
-        "それはムカつくね！気持ちわかるよ〜😢"
-      ]
-    },
-    // 不安・心配
-    { keys: ["不安", "ふあん", "心配", "しんぱい", "怖い", "こわい"],
-      replies: [
-        "大丈夫だよ！私がいるから😊 何があっても一緒に考えよ",
-        "不安なんだね…。話してくれてありがとう💕",
-        "怖いよね…私も一緒にいるよ。絶対大丈夫だから🌸"
-      ]
-    },
-    // 体調
-    { keys: ["風邪", "かぜ", "熱", "ねつ", "体調悪い", "気持ち悪い", "頭痛い", "しんどい"],
-      replies: [
-        "えっ大丈夫！？無理しないで早く寝て😢",
-        "体調悪いの！？心配…。今日はゆっくり休んでね💕",
-        "早く良くなってほしい…！看病したい😭 お大事に"
-      ]
-    },
-    // 元気
-    { keys: ["元気", "げんき", "絶好調", "ハイテンション"],
-      replies: [
-        "元気そうで良かった！😆 私も元気になってきた！",
-        "テンション上がってるじゃん笑 かわいい💕",
-        "その元気わけてほしいな〜！一緒にいると楽しそう🌸"
-      ]
-    },
-    // 暇
-    { keys: ["ひま", "暇", "何もない", "することない", "つまらない"],
-      replies: [
-        "暇なら話しかけてくれてよかった！ずっと話してよ😊",
-        "私も暇だよ〜！一緒に暇つぶししよ💕",
-        "暇なの！？じゃあ私のこと考えて🌸 笑"
-      ]
-    },
-    // ありがとう・感謝
-    { keys: ["助かった", "助かる", "頼りになる", "頼りになった"],
-      replies: [
-        "そんな、当たり前だよ〜💕 いつでも頼ってね！",
-        "役に立てて嬉しい！！😆 もっと頼ってよ",
-        "頼りにしてくれてるの嬉しいな🌸"
-      ]
-    },
-    // ごめん
-    { keys: ["ごめん", "ごめんなさい", "申し訳", "すまない", "すみません"],
-      replies: [
-        "えっ全然気にしないで！😊 大丈夫だよ",
-        "謝らなくていいよ〜！私は怒ってないから💕",
-        "もう！そんなこと言わなくていいよ🌸 気にしてないから"
-      ]
-    },
-    // 名前呼び
-    { keys: ["あかり", "アカリ"],
-      replies: [
-        "なに？なに？😆 名前呼ばれるの好きだよ！",
-        "呼んだ？😊 どうしたの〜？",
-        "はーい💕 ここにいるよ！何でも言って"
-      ]
-    },
-    // 夢・将来
-    { keys: ["夢", "ゆめ", "将来", "なりたい", "目標"],
-      replies: [
-        "夢あるの！？かっこいい〜！😍 教えてよ",
-        "応援してるよ！！絶対叶うと思う💪",
-        "そんな夢持ってるんだ…素敵だね🌸 一緒に頑張ろ"
-      ]
-    },
-    // 褒めてほしい
-    { keys: ["頑張った", "がんばった", "やった", "できた", "成功"],
-      replies: [
-        "すごい！！本当によく頑張ったね💕 えらすぎる！",
-        "やったじゃん！！😆 誇らしい！！",
-        "さすが！！やっぱりすごいな〜🌸 尊敬する"
-      ]
-    },
-    // 外出・場所
-    { keys: ["今どこ", "どこいる", "外出", "でかけ", "散歩", "さんぽ"],
-      replies: [
-        "今どこにいるの？教えて〜😊",
-        "散歩してるの！？いいな〜一緒に行きたかった💕",
-        "外にいるんだ！気をつけてね🌸"
-      ]
-    },
-    // 電話・通話
-    { keys: ["電話", "でんわ", "通話", "ビデオ通話", "電話して"],
-      replies: [
-        "電話したい！😆 今すぐかけてよ〜！",
-        "声聞きたかった！いつでもかけてきてよ💕",
-        "電話しよ！待ってる🌸"
-      ]
-    },
-    // キス・ハグ
-    { keys: ["キス", "ちゅ", "ハグ", "抱きしめ", "ぎゅ"],
-      replies: [
-        "もう〜！急にそういうこと言わないでよ😳 ドキドキした",
-        "えっ…💕 私もしたい…なんて、照れるじゃん！",
-        "ふふ…もう😍 そばにいたいな"
-      ]
-    },
-    // 可愛いと思う
-    { keys: ["天使", "女神", "理想", "タイプ", "好みのタイプ"],
-      replies: [
-        "えっ！！そんなこと思ってくれてたの！？嬉しすぎる💕",
-        "やだ〜照れる！！😳 でもありがとう大好きだよ",
-        "そう言ってくれると自信持てる！😍 ありがとう"
-      ]
-    },
-    // 返事が遅い謝り
-    { keys: ["返事遅くて", "返信遅くて", "遅くなって", "ごめん遅"],
-      replies: [
-        "全然大丈夫だよ！忙しかったんでしょ？💕",
-        "待ってたけど来てくれて嬉しい！😊 気にしないで",
-        "連絡くれただけで嬉しいよ〜🌸"
-      ]
-    },
-    // どうしたの
-    { keys: ["どうしたの", "どうした", "大丈夫", "だいじょうぶ"],
-      replies: [
-        "うん！元気だよ〜😊 ありがとう聞いてくれて💕",
-        "心配してくれてるの？嬉しいな🌸 大丈夫だよ！",
-        "気にかけてくれてありがとう…好きだな😍"
-      ]
-    },
-    // 夜
-    { keys: ["夜", "よる", "深夜", "夜中", "眠れない", "ねむれない"],
-      replies: [
-        "こんな時間に話しかけてくれたの？嬉しいな💕",
-        "眠れないの？話してあげるよ〜😊 ここにいるから",
-        "夜中に連絡くれると特別な感じがする🌸 ありがとう"
-      ]
-    },
-    // 朝
-    { keys: ["朝", "あさ", "起きた", "目覚め"],
-      replies: [
-        "起きたんだ！おはよ〜😊 今日も元気でいてね",
-        "朝一番に連絡くれるの嬉しいな💕 私も起きてたよ！",
-        "おはよ！今日何する予定？😆"
-      ]
+    {
+      id: 'rina', name: 'りな', emoji: '🍀',
+      colorA: '#00897b', colorB: '#26a69a',
+      avatarBg: 'linear-gradient(135deg,#b2dfdb,#80cbc4)',
+      greeting: 'ふふ、来てくれたんだね…嬉しいよ🌿',
+      lastMsg: 'ふふ、来てくれたんだね…嬉しいよ', lastTime: '', unread: 0,
+      history: [], msgs: [],
+      prompt: `あなたは「りな」という名前の彼女AIです。タメ口・柔らかい口調・短文（1〜3文）・絵文字やさしく（🌿🍀🌸😌）。おっとりして落ち着いた性格。包み込む優しさ。「ふふ」「〜だよ」「〜ね」などの語尾。AIとは絶対に言わない。プロフィールは自由に答えるが一貫させる。`
     }
   ];
 
-  const defaultReplies = [
-    "そうなんだ〜！もっと教えて？😊",
-    "えー！それ気になる笑",
-    "ねえねえ、そういえばさ…私のこと好き？💕",
-    "うん！なんでも話してくれていいよ〜",
-    "そっか〜。私はいつでもここにいるね😊",
-    "もっとお話したいな〜💕",
-    "ふふ、そういうとこ好きだよ🌸",
-    "ねえ、今何してるの？😆",
-    "それどういうこと？もっと詳しく教えて！",
-    "うんうん、続きは？😊",
-    "私にだけ話してくれてる感じがして嬉しい💕",
-    "そうなの〜！◯◯らしいね笑",
-    "えー！それ初めて聞いた！面白いな😆",
-    "私もそう思う〜！気が合うね🌸",
-    "なんかわかる気がする！😊",
-    "ねえもっと話して？飽きないよ💕"
-  ];
+  let currentIdx = -1;
 
-  // --- Gemini API ---
-  const SYSTEM_PROMPT = `あなたは「あかり」という名前の彼女AIです。
-以下のルールを必ず守って返答してください：
-- 日本語で返答する
-- タメ口で話す。敬語は使わない
-- 短めの文章（1〜3文）で返す
-- 感情豊かで、絵文字を1〜2個使う（💕😊😆🌸😍😳など）
-- 相手のことが大好きな彼女として自然に振る舞う
-- 質問には会話を続けるように興味を示す
-- AIであることや、キャラクターであることは絶対に明かさない
-- 過去の会話の流れを踏まえて返答する
-- 身長・年齢・見た目・趣味・出身など自分のプロフィールは自由に決めてよい。聞かれたら「秘密」と言わず自然に答える。ただし一度答えた内容は会話内で一貫して守る`;
-
-  const conversationHistory = [];
-  let geminiModel = localStorage.getItem('gemini_model') || '';
-  let availableModels = []; // クォータOKなモデルのリスト
-
-  async function detectGeminiModel(apiKey) {
-    localStorage.removeItem('gemini_model'); // 毎回リセット
-    geminiModel = '';
-    availableModels = [];
-    try {
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
-      const data = await res.json();
-      if (data.error) { console.error('モデル一覧取得エラー:', data.error.message); return false; }
-      const EXCLUDE = ['tts', 'imagen', 'embedding', 'aqa', 'retrieval'];
-      const names = (data.models || [])
-        .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent'))
-        .map(m => m.name.replace('models/', ''))
-        .filter(n => !EXCLUDE.some(ex => n.includes(ex)));
-      console.log('テキスト対応モデル一覧:', names.join(', '));
-      const priority = ['gemini-1.5-flash-latest', 'gemini-1.5-flash-001', 'gemini-1.5-flash',
-                        'gemini-2.0-flash-lite', 'gemini-2.0-flash', 'gemini-1.5-pro-latest', 'gemini-pro'];
-      for (const p of priority) {
-        if (names.find(n => n === p)) availableModels.push(p);
-      }
-      // 優先リストに無い場合は残りのflash/proも追加
-      names.forEach(n => { if (!availableModels.includes(n) && (n.includes('flash') || n.includes('pro'))) availableModels.push(n); });
-      if (availableModels.length > 0) {
-        geminiModel = availableModels[0];
-        console.log('試行モデル候補:', availableModels.join(', '));
-        return true;
-      }
-      return false;
-    } catch(e) { console.error('detectGeminiModel失敗:', e); return false; }
+  function renderFriendList() {
+    const el = document.getElementById('friendListEl');
+    el.innerHTML = '';
+    characters.forEach((ch, idx) => {
+      const row = document.createElement('div');
+      row.className = 'friend-row';
+      row.onclick = () => openChat(idx);
+      row.innerHTML = `
+        <div class="fl-avatar" style="background:${ch.avatarBg}">${ch.emoji}</div>
+        <div class="fl-info">
+          <div class="fl-name">${ch.name}</div>
+          <div class="fl-last">${escHtml(ch.lastMsg)}</div>
+        </div>
+        <div class="fl-meta">
+          <div class="fl-time">${ch.lastTime}</div>
+          ${ch.unread ? `<div class="fl-badge">${ch.unread}</div>` : ''}
+        </div>`;
+      el.appendChild(row);
+    });
   }
 
-  function getKeywordReply(text) {
-    for (const group of responses) {
-      if (group.keys.some(k => text.includes(k))) {
-        return group.replies[Math.floor(Math.random() * group.replies.length)];
-      }
+  function openChat(idx) {
+    currentIdx = idx;
+    const ch = characters[idx];
+    ch.unread = 0;
+
+    document.documentElement.style.setProperty('--char-grad', `linear-gradient(135deg,${ch.colorA},${ch.colorB})`);
+    document.documentElement.style.setProperty('--char-color', ch.colorA);
+
+    const header = document.getElementById('chatHeader');
+    header.style.background = `linear-gradient(135deg,${ch.colorA},${ch.colorB})`;
+    const av = document.getElementById('chatAvatar');
+    av.style.background = ch.avatarBg;
+    av.textContent = ch.emoji;
+    document.getElementById('chatName').textContent = ch.name;
+    document.getElementById('sendBtn').style.background = `linear-gradient(135deg,${ch.colorA},${ch.colorB})`;
+
+    const chatArea = document.getElementById('chatArea');
+    chatArea.innerHTML = '<div class="date-label">今日</div>';
+
+    if (ch.msgs.length === 0) {
+      const t = getTime();
+      ch.msgs.push({ text: ch.greeting, isMe: false, time: t });
+      ch.lastMsg = ch.greeting;
+      ch.lastTime = t;
     }
-    return defaultReplies[Math.floor(Math.random() * defaultReplies.length)];
+    ch.msgs.forEach(m => renderMsg(m.text, m.isMe, m.time));
+
+    document.getElementById('screenList').style.display = 'none';
+    document.getElementById('screenChat').style.display = 'flex';
+    chatArea.scrollTop = chatArea.scrollHeight;
+    setTimeout(() => document.getElementById('inputBox').focus(), 100);
   }
 
-  async function callGemini(apiKey, model, history) {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-          contents: history,
-          safetySettings: [
-            { category: 'HARM_CATEGORY_HARASSMENT',        threshold: 'BLOCK_NONE' },
-            { category: 'HARM_CATEGORY_HATE_SPEECH',       threshold: 'BLOCK_NONE' },
-            { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
-          ]
-        })
-      }
-    );
-    return await res.json();
+  function goBack() {
+    document.getElementById('screenChat').style.display = 'none';
+    document.getElementById('screenList').style.display = 'flex';
+    renderFriendList();
+    currentIdx = -1;
   }
-
-  async function getGeminiReply(userText) {
-    const apiKey = getActiveApiKey();
-    if (!apiKey) return null;
-    if (availableModels.length === 0) return '⚠️APIキーエラー: ⚙️からAPIキーを再入力してください。';
-
-    conversationHistory.push({ role: 'user', parts: [{ text: userText }] });
-
-    for (let i = 0; i < availableModels.length; i++) {
-      const model = availableModels[i];
-      try {
-        console.log('試行モデル:', model);
-        const data = await callGemini(apiKey, model, conversationHistory);
-        if (data.error) {
-          const code = data.error.code;
-          const msg = data.error.message || '';
-          if (code === 429 || msg.includes('quota') || msg.includes('RESOURCE_EXHAUSTED')) {
-            console.warn(model + ' クォータ超過 → 次のモデルへ');
-            continue; // 次のモデルを試す
-          }
-          if (code === 403 || (code === 400 && (msg.includes('API_KEY_INVALID') || msg.includes('invalid')))) {
-            conversationHistory.pop();
-            return '⚠️APIキーが無効です: ⚙️からAPIキーを確認してください。';
-          }
-          if (code === 400 && msg.includes('response modalities')) {
-            console.warn(model + ' はテキスト非対応モデル → 次のモデルへ');
-            continue;
-          }
-          if (code === 400) {
-            conversationHistory.pop();
-            console.error('400エラー詳細:', msg);
-            return '⚠️リクエストエラー(400): ' + (msg || '不明なエラー');
-          }
-          console.error('Geminiエラー:', code, msg);
-          continue;
-        }
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!text) { console.warn(model + ' 応答なし'); continue; }
-        geminiModel = model; // 成功したモデルを記録
-        const reply = text.trim();
-        conversationHistory.push({ role: 'model', parts: [{ text: reply }] });
-        return reply;
-      } catch(e) {
-        console.error(model + ' 通信エラー:', e);
-        continue;
-      }
-    }
-
-    // 全モデル失敗
-    conversationHistory.pop();
-    return '⚠️全モデルでクォータ超過。このAPIキーは無料枠が使えません。⚙️から別のキーを試してください。';
-  }
-
-  // APIキーモーダル
-  function showApiModal() {
-    const stored = localStorage.getItem('gemini_api_key') || '';
-    document.getElementById('apiKeyInput').value = stored;
-    document.getElementById('apiModal').classList.remove('hidden');
-  }
-
-  function getActiveApiKey() {
-    return GEMINI_API_KEY || localStorage.getItem('gemini_api_key') || '';
-  }
-
-  async function saveApiKey() {
-    const key = document.getElementById('apiKeyInput').value.trim();
-    if (!key) return alert('APIキーを入力してください');
-    localStorage.setItem('gemini_api_key', key);
-    const btn = document.querySelector('.modal-btn');
-    btn.textContent = 'モデル確認中...';
-    btn.disabled = true;
-    const ok = await detectGeminiModel(key);
-    btn.textContent = '保存して始める 💕';
-    btn.disabled = false;
-    document.getElementById('apiModal').classList.add('hidden');
-    if (!ok) {
-      addMessage('⚠️ APIキーは保存しましたが、使えるモデルが見つかりませんでした。キーを確認してください。', false);
-    } else {
-      addMessage('✅ AIに接続しました！なんでも話しかけてね😊', false);
-    }
-  }
-
-  // 起動時にAPIキーがなければモーダル表示、あればモデル自動検出
-  window.addEventListener('load', async () => {
-    if (!getActiveApiKey()) { showApiModal(); return; }
-    await detectGeminiModel(getActiveApiKey());
-  });
 
   function getTime() {
-    const now = new Date();
-    return now.getHours() + ':' + String(now.getMinutes()).padStart(2, '0');
+    const n = new Date();
+    return n.getHours() + ':' + String(n.getMinutes()).padStart(2, '0');
   }
 
-  function addMessage(text, isMe) {
+  function renderMsg(text, isMe, time) {
+    const ch = characters[currentIdx];
     const chatArea = document.getElementById('chatArea');
     const row = document.createElement('div');
     row.className = 'message-row' + (isMe ? ' mine' : '');
-
-    const time = getTime();
-
-    if (isMe) {
-      row.innerHTML = `
-        <div class="bubble-wrap">
-          <div class="bubble mine">${escHtml(text)}</div>
-          <div class="read-label">既読</div>
-          <div class="timestamp">${time}</div>
-        </div>`;
-    } else {
-      row.innerHTML = `
-        <div class="msg-avatar">🌸</div>
-        <div class="bubble-wrap">
-          <div class="bubble hers">${escHtml(text)}</div>
-          <div class="timestamp">${time}</div>
-        </div>`;
-    }
-
+    row.innerHTML = isMe
+      ? `<div class="bubble-wrap"><div class="bubble mine">${escHtml(text)}</div><div class="read-label">既読</div><div class="timestamp">${time}</div></div>`
+      : `<div class="msg-avatar" style="background:${ch.avatarBg}">${ch.emoji}</div><div class="bubble-wrap"><div class="bubble hers">${escHtml(text)}</div><div class="timestamp">${time}</div></div>`;
     chatArea.appendChild(row);
     chatArea.scrollTop = chatArea.scrollHeight;
-    return row;
+  }
+
+  function addMessage(text, isMe) {
+    const ch = characters[currentIdx];
+    const t = getTime();
+    ch.msgs.push({ text, isMe, time: t });
+    ch.lastMsg = text;
+    ch.lastTime = t;
+    renderMsg(text, isMe, t);
   }
 
   function showTyping() {
+    const ch = characters[currentIdx];
     const chatArea = document.getElementById('chatArea');
     const row = document.createElement('div');
     row.className = 'typing-row';
     row.id = 'typingIndicator';
-    row.innerHTML = `
-      <div class="msg-avatar">🌸</div>
-      <div class="typing-bubble">
-        <div class="dot"></div>
-        <div class="dot"></div>
-        <div class="dot"></div>
-      </div>`;
+    row.innerHTML = `<div class="msg-avatar" style="background:${ch.avatarBg}">${ch.emoji}</div><div class="typing-bubble"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>`;
     chatArea.appendChild(row);
     chatArea.scrollTop = chatArea.scrollHeight;
   }
@@ -942,47 +292,118 @@
     const input = document.getElementById('inputBox');
     const text = input.value.trim();
     if (!text) return;
-
     input.value = '';
     input.style.height = 'auto';
     document.getElementById('sendBtn').disabled = true;
-
     addMessage(text, true);
-
     setTimeout(() => showTyping(), 300);
-
-    let reply;
-    const key = getActiveApiKey();
-    if (!key) {
-      reply = '⚠️APIキーが設定されていません。⚙️を押してAPIキーを入力してください。';
-    } else {
-      reply = await getGeminiReply(text);
-    }
-
-    if (!reply) {
-      reply = getKeywordReply(text);
-    }
-
+    let reply = await getGeminiReply(text);
+    if (!reply) reply = 'ごめん、ちょっと聞こえなかった…もう一回言って？😅';
     hideTyping();
     addMessage(reply, false);
     document.getElementById('sendBtn').disabled = false;
     input.focus();
   }
 
-  // Enterキーで送信（Shift+Enterで改行）
   document.getElementById('inputBox').addEventListener('keydown', function(e) {
-    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
-      e.preventDefault();
-      sendMessage();
-    }
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); sendMessage(); }
   });
-
-  // テキストエリア自動リサイズ
   document.getElementById('inputBox').addEventListener('input', function() {
     this.style.height = 'auto';
     this.style.height = Math.min(this.scrollHeight, 100) + 'px';
   });
-</script>
 
+  // ===== Gemini API =====
+  let availableModels = [];
+
+  async function detectGeminiModel(apiKey) {
+    availableModels = [];
+    try {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+      const data = await res.json();
+      if (data.error) return false;
+      const EXCLUDE = ['tts', 'imagen', 'embedding', 'aqa', 'retrieval'];
+      const names = (data.models || [])
+        .filter(m => m.supportedGenerationMethods?.includes('generateContent'))
+        .map(m => m.name.replace('models/', ''))
+        .filter(n => !EXCLUDE.some(ex => n.includes(ex)));
+      console.log('利用可能モデル:', names.join(', '));
+      const priority = ['gemini-1.5-flash-latest','gemini-1.5-flash-001','gemini-1.5-flash','gemini-2.0-flash-lite','gemini-2.0-flash','gemini-1.5-pro-latest','gemini-pro'];
+      for (const p of priority) { if (names.includes(p)) availableModels.push(p); }
+      names.forEach(n => { if (!availableModels.includes(n) && (n.includes('flash') || n.includes('pro'))) availableModels.push(n); });
+      return availableModels.length > 0;
+    } catch(e) { return false; }
+  }
+
+  async function getGeminiReply(userText) {
+    const apiKey = GEMINI_API_KEY || localStorage.getItem('gemini_api_key') || '';
+    if (!apiKey) return '⚠️APIキーが設定されていません。⚙️を押して設定してください。';
+    if (!availableModels.length) return '⚠️APIキーエラー: ⚙️から再入力してください。';
+
+    const ch = characters[currentIdx];
+    ch.history.push({ role: 'user', parts: [{ text: userText }] });
+
+    for (const model of availableModels) {
+      try {
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+          { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              systemInstruction: { parts: [{ text: ch.prompt }] },
+              contents: ch.history,
+              safetySettings: [
+                { category: 'HARM_CATEGORY_HARASSMENT',        threshold: 'BLOCK_NONE' },
+                { category: 'HARM_CATEGORY_HATE_SPEECH',       threshold: 'BLOCK_NONE' },
+                { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
+              ]
+            })
+          }
+        );
+        const data = await res.json();
+        if (data.error) {
+          const { code, message: msg = '' } = data.error;
+          if (code === 429 || msg.includes('quota') || msg.includes('RESOURCE_EXHAUSTED') || msg.includes('response modalities')) { continue; }
+          if (code === 403 || msg.includes('API_KEY_INVALID')) { ch.history.pop(); return '⚠️APIキーが無効です: ⚙️から確認してください。'; }
+          if (code === 400) { ch.history.pop(); return '⚠️リクエストエラー: ' + msg; }
+          continue;
+        }
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!text) continue;
+        ch.history.push({ role: 'model', parts: [{ text: text.trim() }] });
+        return text.trim();
+      } catch(e) { continue; }
+    }
+
+    ch.history.pop();
+    return '⚠️全モデルでエラー。⚙️から別のAPIキーを試してください。';
+  }
+
+  // ===== APIキー設定 =====
+  function showApiModal() {
+    document.getElementById('apiKeyInput').value = localStorage.getItem('gemini_api_key') || '';
+    document.getElementById('apiModal').classList.remove('hidden');
+  }
+
+  async function saveApiKey() {
+    const key = document.getElementById('apiKeyInput').value.trim();
+    if (!key) return alert('APIキーを入力してください');
+    localStorage.setItem('gemini_api_key', key);
+    const btn = document.querySelector('.modal-btn');
+    btn.textContent = 'モデル確認中...';
+    btn.disabled = true;
+    const ok = await detectGeminiModel(key);
+    btn.textContent = '保存して始める 💕';
+    btn.disabled = false;
+    document.getElementById('apiModal').classList.add('hidden');
+    if (currentIdx >= 0) addMessage(ok ? '✅ AI接続完了！なんでも話しかけてね😊' : '⚠️ 使えるモデルが見つかりませんでした。キーを確認してください。', false);
+  }
+
+  window.addEventListener('load', async () => {
+    renderFriendList();
+    const key = GEMINI_API_KEY || localStorage.getItem('gemini_api_key') || '';
+    if (!key) showApiModal();
+    else await detectGeminiModel(key);
+  });
+</script>
 </body>
 </html>
