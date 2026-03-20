@@ -730,31 +730,30 @@
 - 過去の会話の流れを踏まえて返答する`;
 
   const conversationHistory = [];
-  let geminiModel = localStorage.getItem('gemini_model') || 'gemini-2.0-flash';
+  let geminiModel = localStorage.getItem('gemini_model') || '';
+  let availableModels = []; // クォータOKなモデルのリスト
 
   async function detectGeminiModel(apiKey) {
+    localStorage.removeItem('gemini_model'); // 毎回リセット
+    geminiModel = '';
+    availableModels = [];
     try {
       const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
       const data = await res.json();
       if (data.error) { console.error('モデル一覧取得エラー:', data.error.message); return false; }
-      // 実際のモデル名をそのまま使う
       const names = (data.models || [])
         .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent'))
         .map(m => m.name.replace('models/', ''));
-      // 優先順位で最初に見つかったものを使用
-      const priority = ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash-latest',
-                        'gemini-1.5-flash-001', 'gemini-1.5-flash', 'gemini-1.5-pro-latest', 'gemini-pro'];
-      let chosen = null;
+      const priority = ['gemini-1.5-flash-latest', 'gemini-1.5-flash-001', 'gemini-1.5-flash',
+                        'gemini-2.0-flash-lite', 'gemini-2.0-flash', 'gemini-1.5-pro-latest', 'gemini-pro'];
       for (const p of priority) {
-        const exact = names.find(n => n === p);
-        if (exact) { chosen = exact; break; }
+        if (names.find(n => n === p)) availableModels.push(p);
       }
-      // 完全一致がなければflash/proを含むものを使う
-      if (!chosen) chosen = names.find(n => n.includes('flash')) || names.find(n => n.includes('pro')) || names[0];
-      if (chosen) {
-        geminiModel = chosen;
-        localStorage.setItem('gemini_model', chosen);
-        console.log('使用モデル:', chosen, '/ 全モデル:', names.join(', '));
+      // 優先リストに無い場合は残りのflash/proも追加
+      names.forEach(n => { if (!availableModels.includes(n) && (n.includes('flash') || n.includes('pro'))) availableModels.push(n); });
+      if (availableModels.length > 0) {
+        geminiModel = availableModels[0];
+        console.log('試行モデル候補:', availableModels.join(', '));
         return true;
       }
       return false;
@@ -770,54 +769,62 @@
     return defaultReplies[Math.floor(Math.random() * defaultReplies.length)];
   }
 
+  async function callGemini(apiKey, model, history) {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+          contents: history
+        })
+      }
+    );
+    return await res.json();
+  }
+
   async function getGeminiReply(userText) {
     const apiKey = getActiveApiKey();
-    if (!apiKey) { console.warn('APIキーなし'); return null; }
+    if (!apiKey) return null;
+    if (availableModels.length === 0) return '⚠️APIキーエラー: ⚙️からAPIキーを再入力してください。';
 
-    console.log('Gemini呼び出し中...', userText);
     conversationHistory.push({ role: 'user', parts: [{ text: userText }] });
 
-    try {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-            contents: conversationHistory
-          })
+    for (let i = 0; i < availableModels.length; i++) {
+      const model = availableModels[i];
+      try {
+        console.log('試行モデル:', model);
+        const data = await callGemini(apiKey, model, conversationHistory);
+        if (data.error) {
+          const code = data.error.code;
+          const msg = data.error.message || '';
+          if (code === 429 || msg.includes('quota') || msg.includes('RESOURCE_EXHAUSTED')) {
+            console.warn(model + ' クォータ超過 → 次のモデルへ');
+            continue; // 次のモデルを試す
+          }
+          if (code === 400 || code === 403) {
+            conversationHistory.pop();
+            return '⚠️APIキーエラー('+code+'): ⚙️からAPIキーを確認してください。';
+          }
+          console.error('Geminiエラー:', code, msg);
+          continue;
         }
-      );
-      const data = await res.json();
-      console.log('Gemini response:', JSON.stringify(data, null, 2));
-      if (data.error) {
-        conversationHistory.pop();
-        const code = data.error.code;
-        const msg = data.error.message || '';
-        // クォータ超過・レート制限はフォールバック（エラー表示しない）
-        if (code === 429 || msg.includes('quota') || msg.includes('RESOURCE_EXHAUSTED')) {
-          return '⚠️クォータ超過: このAPIキーの無料枠が使えません。⚙️から別のキーを試してください。';
-        }
-        if (code === 400 || code === 403) {
-          return '⚠️APIキーエラー('+code+'): ⚙️からAPIキーを確認してください。';
-        }
-        return '⚠️エラー('+code+'): ' + msg.substring(0, 100);
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!text) { console.warn(model + ' 応答なし'); continue; }
+        geminiModel = model; // 成功したモデルを記録
+        const reply = text.trim();
+        conversationHistory.push({ role: 'model', parts: [{ text: reply }] });
+        return reply;
+      } catch(e) {
+        console.error(model + ' 通信エラー:', e);
+        continue;
       }
-      const candidate = data.candidates?.[0];
-      if (!candidate?.content?.parts?.[0]?.text) {
-        conversationHistory.pop();
-        console.warn('Gemini応答なし finishReason=', candidate?.finishReason);
-        return null;
-      }
-      const reply = candidate.content.parts[0].text.trim();
-      conversationHistory.push({ role: 'model', parts: [{ text: reply }] });
-      return reply;
-    } catch (e) {
-      conversationHistory.pop();
-      console.error('Gemini通信エラー:', e);
-      return null;
     }
+
+    // 全モデル失敗
+    conversationHistory.pop();
+    return '⚠️全モデルでクォータ超過。このAPIキーは無料枠が使えません。⚙️から別のキーを試してください。';
   }
 
   // APIキーモーダル
