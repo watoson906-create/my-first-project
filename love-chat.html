@@ -738,13 +738,14 @@
 
   async function getGeminiReply(userText) {
     const apiKey = localStorage.getItem('gemini_api_key');
-    if (!apiKey) return null;
+    if (!apiKey) { console.warn('APIキーなし'); return null; }
 
+    console.log('Gemini呼び出し中...', userText);
     conversationHistory.push({ role: 'user', parts: [{ text: userText }] });
 
     try {
       const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -875,7 +876,12 @@
     }
 
     // APIが失敗またはキーなし → キーワードフォールバック
-    if (!reply) reply = getKeywordReply(text);
+    if (!reply) {
+      console.warn('Gemini失敗 → キーワード返答に切替');
+      reply = getKeywordReply(text);
+    } else {
+      console.log('Gemini成功 ✓');
+    }
 
     hideTyping();
     addMessage(reply, false);
