@@ -352,6 +352,10 @@
 </div>
 
 <script>
+  // ↓↓↓ ここにAPIキーを貼り付けてください ↓↓↓
+  const GEMINI_API_KEY = '';
+  // ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑
+
   const responses = [
     // かわいい・見た目
     { keys: ["かわいい", "可愛い", "きれい", "綺麗", "美人", "かっこいい"],
@@ -737,7 +741,7 @@
   }
 
   async function getGeminiReply(userText) {
-    const apiKey = localStorage.getItem('gemini_api_key');
+    const apiKey = GEMINI_API_KEY || localStorage.getItem('gemini_api_key');
     if (!apiKey) { console.warn('APIキーなし'); return null; }
 
     console.log('Gemini呼び出し中...', userText);
