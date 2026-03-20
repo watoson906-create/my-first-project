@@ -813,6 +813,10 @@
             conversationHistory.pop();
             return '⚠️APIキーが無効です: ⚙️からAPIキーを確認してください。';
           }
+          if (code === 400 && msg.includes('response modalities')) {
+            console.warn(model + ' はテキスト非対応モデル → 次のモデルへ');
+            continue;
+          }
           if (code === 400) {
             conversationHistory.pop();
             console.error('400エラー詳細:', msg);
