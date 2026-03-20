@@ -730,6 +730,33 @@
 - 過去の会話の流れを踏まえて返答する`;
 
   const conversationHistory = [];
+  let geminiModel = localStorage.getItem('gemini_model') || 'gemini-2.0-flash';
+
+  async function detectGeminiModel(apiKey) {
+    try {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+      const data = await res.json();
+      if (data.error) return false;
+      const names = (data.models || []).map(m => m.name.replace('models/', ''));
+      // 優先順位: 2.0-flash > 1.5-flash-latest > 1.5-flash > 1.5-pro > pro
+      const priority = ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash-latest', 'gemini-1.5-flash-001', 'gemini-1.5-flash', 'gemini-1.5-pro-latest', 'gemini-pro'];
+      const found = priority.find(p => names.some(n => n === p || n.startsWith(p)));
+      if (found) {
+        geminiModel = found;
+        localStorage.setItem('gemini_model', found);
+        console.log('使用モデル:', found);
+        return true;
+      }
+      // 見つからなければflashが含まれる最初のモデルを使う
+      const flash = names.find(n => n.includes('flash') || n.includes('pro'));
+      if (flash) {
+        geminiModel = flash;
+        localStorage.setItem('gemini_model', flash);
+        return true;
+      }
+      return false;
+    } catch(e) { return false; }
+  }
 
   function getKeywordReply(text) {
     for (const group of responses) {
@@ -749,7 +776,7 @@
 
     try {
       const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${apiKey}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -790,16 +817,28 @@
     return GEMINI_API_KEY || localStorage.getItem('gemini_api_key') || '';
   }
 
-  function saveApiKey() {
+  async function saveApiKey() {
     const key = document.getElementById('apiKeyInput').value.trim();
     if (!key) return alert('APIキーを入力してください');
     localStorage.setItem('gemini_api_key', key);
+    const btn = document.querySelector('.modal-btn');
+    btn.textContent = 'モデル確認中...';
+    btn.disabled = true;
+    const ok = await detectGeminiModel(key);
+    btn.textContent = '保存して始める 💕';
+    btn.disabled = false;
     document.getElementById('apiModal').classList.add('hidden');
+    if (!ok) {
+      addMessage('⚠️ APIキーは保存しましたが、使えるモデルが見つかりませんでした。キーを確認してください。', false);
+    } else {
+      addMessage('✅ AIに接続しました！なんでも話しかけてね😊', false);
+    }
   }
 
-  // 起動時にAPIキーがなければモーダル表示
-  window.addEventListener('load', () => {
-    if (!getActiveApiKey()) { showApiModal(); }
+  // 起動時にAPIキーがなければモーダル表示、あればモデル自動検出
+  window.addEventListener('load', async () => {
+    if (!getActiveApiKey()) { showApiModal(); return; }
+    await detectGeminiModel(getActiveApiKey());
   });
 
   function getTime() {
