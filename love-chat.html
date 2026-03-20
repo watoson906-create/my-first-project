@@ -24,8 +24,9 @@
     .friend-row { display: flex; align-items: center; padding: 13px 16px; gap: 14px; border-bottom: 1px solid #f2f2f2; cursor: pointer; }
     .friend-row:active { background: #fafafa; }
 
-    .fl-avatar { width: 54px; height: 54px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 28px; flex-shrink: 0; overflow: hidden; }
+    .fl-avatar { width: 54px; height: 54px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 28px; flex-shrink: 0; overflow: hidden; position: relative; }
     .fl-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .fl-refresh { position: absolute; bottom: 2px; right: 2px; background: rgba(0,0,0,0.55); color: white; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; line-height: 1; }
     .fl-info { flex: 1; min-width: 0; }
     .fl-name { font-size: 15px; font-weight: bold; color: #111; }
     .fl-last { font-size: 13px; color: #aaa; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -47,7 +48,7 @@
     .ch-name { font-size: 17px; font-weight: bold; }
     .ch-status { font-size: 12px; opacity: 0.85; margin-top: 1px; }
 
-    .chat-area { flex: 1; overflow-y: auto; padding: 16px 12px; background: #f5f5f5; display: flex; flex-direction: column; gap: 10px; }
+    .chat-area { flex: 1; overflow-y: auto; padding: 16px 12px; background: #f5f5f5; display: flex; flex-direction: column; gap: 10px; background-size: cover; background-position: center top; background-attachment: local; }
     .chat-area::-webkit-scrollbar { width: 4px; }
     .chat-area::-webkit-scrollbar-thumb { background: #ddd; border-radius: 2px; }
 
@@ -116,7 +117,7 @@
   <div class="screen" id="screenChat">
     <div class="chat-header" id="chatHeader">
       <div class="back-btn" onclick="goBack()">‹</div>
-      <div class="ch-avatar" id="chatAvatar"></div>
+      <div class="ch-avatar" id="chatAvatar" onclick="refreshAvatar(currentIdx)" style="cursor:pointer" title="タップで画像変更"></div>
       <div class="ch-info">
         <div class="ch-name" id="chatName"></div>
         <div class="ch-status">● オンライン</div>
@@ -199,7 +200,7 @@
       row.className = 'friend-row';
       row.onclick = () => openChat(idx);
       row.innerHTML = `
-        <div class="fl-avatar" style="background:${ch.avatarBg}"><img src="${ch.avatarUrl}" alt="${ch.name}"></div>
+        <div class="fl-avatar" style="background:${ch.avatarBg}"><img src="${ch.avatarUrl}" alt="${ch.name}"><div class="fl-refresh" onclick="event.stopPropagation();refreshAvatar(${idx})" title="画像を変える">🔄</div></div>
         <div class="fl-info">
           <div class="fl-name">${ch.name}</div>
           <div class="fl-last">${escHtml(ch.lastMsg)}</div>
@@ -229,6 +230,7 @@
     document.getElementById('sendBtn').style.background = `linear-gradient(135deg,${ch.colorA},${ch.colorB})`;
 
     const chatArea = document.getElementById('chatArea');
+    chatArea.style.backgroundImage = `linear-gradient(rgba(245,245,245,0.55),rgba(245,245,245,0.55)),url(${ch.avatarUrl})`;
     chatArea.innerHTML = '<div class="date-label">今日</div>';
 
     if (ch.msgs.length === 0) {
@@ -442,6 +444,25 @@
     characters.forEach(ch => localStorage.removeItem('avatar_' + ch.id));
     await fetchAvatars();
     renderFriendList();
+  }
+
+  async function refreshAvatar(idx) {
+    const ch = characters[idx];
+    localStorage.removeItem('avatar_' + ch.id);
+    try {
+      const res = await fetch('https://api.waifu.pics/sfw/waifu');
+      const data = await res.json();
+      if (data.url) {
+        ch.avatarUrl = data.url;
+        localStorage.setItem('avatar_' + ch.id, data.url);
+        // チャット画面が開いていれば背景・ヘッダーも更新
+        if (currentIdx === idx) {
+          document.getElementById('chatAvatar').innerHTML = `<img src="${ch.avatarUrl}" alt="${ch.name}">`;
+          document.getElementById('chatArea').style.backgroundImage = `linear-gradient(rgba(245,245,245,0.55),rgba(245,245,245,0.55)),url(${ch.avatarUrl})`;
+        }
+        renderFriendList();
+      }
+    } catch(e) {}
   }
 
   async function fetchAvatars() {
