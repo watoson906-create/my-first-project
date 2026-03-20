@@ -357,7 +357,7 @@
         .map(m => m.name.replace('models/', ''))
         .filter(n => !EXCLUDE.some(ex => n.includes(ex)));
       console.log('利用可能モデル:', names.join(', '));
-      const priority = ['gemini-1.5-flash-latest','gemini-1.5-flash-001','gemini-1.5-flash','gemini-2.0-flash-lite','gemini-2.0-flash','gemini-1.5-pro-latest','gemini-pro'];
+      const priority = ['gemini-2.0-flash','gemini-2.0-flash-lite','gemini-1.5-flash-latest','gemini-1.5-flash-001','gemini-1.5-flash','gemini-1.5-pro-latest','gemini-pro'];
       for (const p of priority) { if (names.includes(p)) availableModels.push(p); }
       names.forEach(n => { if (!availableModels.includes(n) && (n.includes('flash') || n.includes('pro'))) availableModels.push(n); });
       return availableModels.length > 0;
@@ -383,7 +383,8 @@
               safetySettings: [
                 { category: 'HARM_CATEGORY_HARASSMENT',        threshold: 'BLOCK_NONE' },
                 { category: 'HARM_CATEGORY_HATE_SPEECH',       threshold: 'BLOCK_NONE' },
-                { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
+                { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+                { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' }
               ]
             })
           }
