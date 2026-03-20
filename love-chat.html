@@ -755,12 +755,19 @@
         }
       );
       const data = await res.json();
+      console.log('Gemini response:', JSON.stringify(data, null, 2));
       if (data.error) {
         console.error('Gemini error:', data.error.message);
         conversationHistory.pop();
         return null;
       }
-      const reply = data.candidates[0].content.parts[0].text.trim();
+      const candidate = data.candidates?.[0];
+      if (!candidate?.content?.parts?.[0]?.text) {
+        console.warn('No content in response. finishReason:', candidate?.finishReason);
+        conversationHistory.pop();
+        return null;
+      }
+      const reply = candidate.content.parts[0].text.trim();
       conversationHistory.push({ role: 'model', parts: [{ text: reply }] });
       return reply;
     } catch (e) {
