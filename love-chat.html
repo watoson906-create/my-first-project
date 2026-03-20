@@ -778,7 +778,12 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-          contents: history
+          contents: history,
+          safetySettings: [
+            { category: 'HARM_CATEGORY_HARASSMENT',        threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_HATE_SPEECH',       threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
+          ]
         })
       }
     );
@@ -804,9 +809,14 @@
             console.warn(model + ' クォータ超過 → 次のモデルへ');
             continue; // 次のモデルを試す
           }
-          if (code === 400 || code === 403) {
+          if (code === 403 || (code === 400 && (msg.includes('API_KEY_INVALID') || msg.includes('invalid')))) {
             conversationHistory.pop();
-            return '⚠️APIキーエラー('+code+'): ⚙️からAPIキーを確認してください。';
+            return '⚠️APIキーが無効です: ⚙️からAPIキーを確認してください。';
+          }
+          if (code === 400) {
+            conversationHistory.pop();
+            console.error('400エラー詳細:', msg);
+            return '⚠️リクエストエラー(400): ' + (msg || '不明なエラー');
           }
           console.error('Geminiエラー:', code, msg);
           continue;
