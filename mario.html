@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Super Mario - HTML5</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    overflow: hidden;
+  }
+  canvas {
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    border: 2px solid #333;
+  }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<script>
+// ============================================================
+// Constants
+// ============================================================
+const TILE = 16;
+const SCALE = 3;
+const COLS = 18;
+const ROWS = 14;
+const W = TILE * COLS;
+const H = TILE * ROWS;
+const GRAVITY = 0.4;
+const FRICTION = 0.85;
+const MAX_SPEED = 2.5;
+const JUMP_FORCE = -6.2;
+const ENEMY_SPEED = 0.5;
+const TIME_LIMIT = 300;
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+canvas.width = W;
+canvas.height = H;
+canvas.style.width = W * SCALE + 'px';
+canvas.style.height = H * SCALE + 'px';
+
+// ============================================================
+// Colors
+// ============================================================
+const COL = {
+  sky: '#5c94fc',
+  ground: '#c84c0c',
+  groundTop: '#00a800',
+  brick: '#c84c0c',
+  brickLine: '#dc7a28',
+  qBlock: '#e09c28',
+  qBlockShine: '#fcbcb0',
+  qBlockUsed: '#886454',
+  pipe: '#00a800',
+  pipeDark: '#008000',
+  pipeHighlight: '#74d474',
+  player: '#dc0000',
+  playerSkin: '#fca044',
+  playerShoe: '#6b420c',
+  goomba: '#c84c0c',
+  goombaDark: '#6b420c',
+  coin: '#fcbcb0',
+  coinShine: '#e09c28',
+  pole: '#888',
+  poleTop: '#00a800',
+  flag: '#00a800',
+  white: '#fcfcfc',
+  black: '#000',
+  textShadow: '#000',
+};
+
+// ============================================================
+// Input
+// ============================================================
+const keys = {};
+window.addEventListener('keydown', e => { keys[e.code] = true; e.preventDefault(); });
+window.addEventListener('keyup', e => { keys[e.code] = false; });
+
+// ============================================================
+// Level Data
+// Legend:
+//   G = ground, B = brick, ? = question block, P = pipe bottom-left
+//   p = pipe top-left, E = enemy spawn, C = coin (visible), F = flag
+//   . = empty
+// ============================================================
+const LEVEL_DATA = [
+  // Row 0 (top)
+  '.......................................................................................................................................................................................................',
+  '.......................................................................................................................................................................................................',
+  '..............................................................F.......................................................................................................................................',
+  '..............................................................F.......................................................................................................................................',
+  '.......................?.........................................F......................................................................................................................................',
+  '.......................................................................................................................................................................................................',
+  '...........?..B?B?B..B.....................................C.C.CF.....................................................................................................................................',
+  '.......................................................................................................................................................................................................',
+  '.......................................................................................................................................................................................................',
+  '..........................pp......pp.....pp...................|.F.......................................................................................................................................',
+  '.........................pPP....pPP...pPPP....................|.F......................................................................................................................................',
+  'GGGGGGGGGGGGGGGGGGGGGGGGGPPG....GPPGGGGPPPGGGGG..GGGGGGGGGGGGGFGGGGGGG...............................................................................................................................',
+  'GGGGGGGGGGGGGGGGGGGGGGGGGGGG....GGGGGGGGGGGGGGG..GGGGGGGGGGGGGGGGGGGGG...............................................................................................................................',
+  'GGGGGGGGGGGGGGGGGGGGGGGGGGGG....GGGGGGGGGGGGGGG..GGGGGGGGGGGGGGGGGGGGG...............................................................................................................................',
+];
+
+// Enemy spawn positions (tile x, y)
+const ENEMY_SPAWNS = [
+  { x: 10, y: 10 },
+  { x: 18, y: 10 },
+  { x: 35, y: 10 },
+];
+
+// ============================================================
+// Parse level into tile map
+// ============================================================
+const levelWidth = LEVEL_DATA[0].length;
+const levelHeight = LEVEL_DATA.length;
+const tiles = [];
+
+for (let y = 0; y < levelHeight; y++) {
+  tiles[y] = [];
+  for (let x = 0; x < levelWidth; x++) {
+    const ch = LEVEL_DATA[y][x];
+    tiles[y][x] = { type: ch, bumped: false, bumpTimer: 0, used: false, coinCollected: false };
+  }
+}
+
+// ============================================================
+// Game State
+// ============================================================
+let camera = { x: 0 };
+let score = 0;
+let coins = 0;
+let timeLeft = TIME_LIMIT;
+let timeAccum = 0;
+let gameState = 'playing'; // playing, dead, won, gameover
+let deathTimer = 0;
+let winTimer = 0;
+
+// ============================================================
+// Player
+// ============================================================
+const player = {
+  x: 3 * TILE, y: 10 * TILE,
+  vx: 0, vy: 0,
+  w: 14, h: 16,
+  onGround: false,
+  facing: 1,
+  frame: 0,
+  frameTimer: 0,
+  dead: false,
+  winning: false,
+  winSlide: false,
+};
+
+// ============================================================
+// Enemies
+// ============================================================
+let enemies = ENEMY_SPAWNS.map(s => ({
+  x: s.x * TILE, y: s.y * TILE,
+  vx: -ENEMY_SPEED,
+  w: 14, h: 14,
+  alive: true,
+  squishTimer: 0,
+}));
+
+// ============================================================
+// Particles (coin pop, score pop)
+// ============================================================
+let particles = [];
+
+function spawnCoinParticle(x, y) {
+  particles.push({ type: 'coin', x, y, vy: -5, life: 30 });
+}
+
+function spawnScoreParticle(x, y, text) {
+  particles.push({ type: 'score', x, y, vy: -1, life: 40, text });
+}
+
+// ============================================================
+// Collision helpers
+// ============================================================
+function isSolid(tx, ty) {
+  if (ty < 0) return false;
+  if (ty >= levelHeight || tx < 0 || tx >= levelWidth) return false;
+  const t = tiles[ty][tx];
+  return 'GBPp?|'.includes(t.type);
+}
+
+function tileAt(px, py) {
+  const tx = Math.floor(px / TILE);
+  const ty = Math.floor(py / TILE);
+  if (tx < 0 || tx >= levelWidth || ty < 0 || ty >= levelHeight) return null;
+  return tiles[ty][tx];
+}
+
+function boxOverlap(a, b) {
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+// ============================================================
+// Player physics
+// ============================================================
+function updatePlayer() {
+  if (player.dead) {
+    player.vy += GRAVITY;
+    player.y += player.vy;
+    return;
+  }
+  if (player.winning) {
+    if (player.winSlide) {
+      player.y += 1.5;
+      // Find ground
+      const ty = Math.floor(player.y / TILE);
+      if (ty >= levelHeight - 3) {
+        player.winSlide = false;
+        player.onGround = true;
+        player.y = (levelHeight - 3) * TILE;
+      }
+    }
+    return;
+  }
+
+  // Horizontal movement
+  if (keys['ArrowLeft'] || keys['KeyA']) {
+    player.vx -= 0.35;
+    player.facing = -1;
+  }
+  if (keys['ArrowRight'] || keys['KeyD']) {
+    player.vx += 0.35;
+    player.facing = 1;
+  }
+
+  player.vx *= FRICTION;
+  if (Math.abs(player.vx) < 0.1) player.vx = 0;
+  if (player.vx > MAX_SPEED) player.vx = MAX_SPEED;
+  if (player.vx < -MAX_SPEED) player.vx = -MAX_SPEED;
+
+  // Jump
+  if ((keys['Space'] || keys['ArrowUp'] || keys['KeyW']) && player.onGround) {
+    player.vy = JUMP_FORCE;
+    player.onGround = false;
+  }
+
+  // Gravity
+  player.vy += GRAVITY;
+  if (player.vy > 8) player.vy = 8;
+
+  // Horizontal collision
+  player.x += player.vx;
+  const pb = { x: player.x + 1, y: player.y, w: player.w - 2, h: player.h };
+
+  // Left/Right
+  for (let ty = Math.floor(pb.y / TILE); ty <= Math.floor((pb.y + pb.h - 1) / TILE); ty++) {
+    if (player.vx > 0) {
+      const tx = Math.floor((pb.x + pb.w) / TILE);
+      if (isSolid(tx, ty)) {
+        player.x = tx * TILE - player.w - 1;
+        player.vx = 0;
+      }
+    }
+    if (player.vx < 0) {
+      const tx = Math.floor(pb.x / TILE);
+      if (isSolid(tx, ty)) {
+        player.x = (tx + 1) * TILE - 1;
+        player.vx = 0;
+      }
+    }
+  }
+
+  // Vertical collision
+  player.y += player.vy;
+  player.onGround = false;
+  const pb2 = { x: player.x + 2, y: player.y, w: player.w - 4, h: player.h };
+
+  for (let tx = Math.floor(pb2.x / TILE); tx <= Math.floor((pb2.x + pb2.w - 1) / TILE); tx++) {
+    if (player.vy > 0) {
+      const ty = Math.floor((pb2.y + pb2.h) / TILE);
+      if (isSolid(tx, ty)) {
+        player.y = ty * TILE - player.h;
+        player.vy = 0;
+        player.onGround = true;
+      }
+    }
+    if (player.vy < 0) {
+      const ty = Math.floor(pb2.y / TILE);
+      if (isSolid(tx, ty)) {
+        player.y = (ty + 1) * TILE;
+        player.vy = 0;
+        // Hit ? block
+        hitBlock(tx, ty);
+      }
+    }
+  }
+
+  // Fall off
+  if (player.y > levelHeight * TILE) {
+    killPlayer();
+  }
+
+  // Camera shouldn't go left of player start
+  if (player.x < 0) { player.x = 0; player.vx = 0; }
+
+  // Animation
+  if (!player.onGround) {
+    player.frame = 2; // jump frame
+  } else if (Math.abs(player.vx) > 0.3) {
+    player.frameTimer++;
+    if (player.frameTimer > 6) { player.frameTimer = 0; player.frame = player.frame === 0 ? 1 : 0; }
+  } else {
+    player.frame = 0;
+  }
+}
+
+function hitBlock(tx, ty) {
+  const tile = tiles[ty][tx];
+  if (tile.type === '?' && !tile.used) {
+    tile.used = true;
+    tile.bumped = true;
+    tile.bumpTimer = 8;
+    score += 200;
+    coins++;
+    spawnCoinParticle(tx * TILE + 4, ty * TILE - 10);
+    spawnScoreParticle(tx * TILE, ty * TILE - 20, '200');
+  } else if (tile.type === 'B') {
+    tile.bumped = true;
+    tile.bumpTimer = 6;
+  }
+}
+
+function killPlayer() {
+  if (player.dead) return;
+  player.dead = true;
+  player.vy = JUMP_FORCE;
+  player.vx = 0;
+  deathTimer = 90;
+  gameState = 'dead';
+}
+
+// ============================================================
+// Enemies
+// ============================================================
+function updateEnemies() {
+  for (const e of enemies) {
+    if (!e.alive) {
+      if (e.squishTimer > 0) e.squishTimer--;
+      continue;
+    }
+
+    e.x += e.vx;
+    e.y += GRAVITY * 2;
+
+    // Ground collision
+    const bx1 = Math.floor((e.x + 2) / TILE);
+    const bx2 = Math.floor((e.x + e.w - 2) / TILE);
+    const by = Math.floor((e.y + e.h) / TILE);
+    if (isSolid(bx1, by) || isSolid(bx2, by)) {
+      e.y = by * TILE - e.h;
+    }
+
+    // Wall collision
+    if (e.vx < 0) {
+      const wx = Math.floor(e.x / TILE);
+      const wy = Math.floor((e.y + e.h / 2) / TILE);
+      if (isSolid(wx, wy)) e.vx = ENEMY_SPEED;
+    } else {
+      const wx = Math.floor((e.x + e.w) / TILE);
+      const wy = Math.floor((e.y + e.h / 2) / TILE);
+      if (isSolid(wx, wy)) e.vx = -ENEMY_SPEED;
+    }
+
+    // Fall off
+    if (e.y > levelHeight * TILE) e.alive = false;
+
+    // Player collision
+    if (!player.dead && !player.winning && boxOverlap(
+      { x: player.x + 2, y: player.y, w: player.w - 4, h: player.h },
+      { x: e.x, y: e.y, w: e.w, h: e.h }
+    )) {
+      if (player.vy > 0 && player.y + player.h - 4 < e.y + e.h / 2) {
+        // Stomp
+        e.alive = false;
+        e.squishTimer = 20;
+        player.vy = -4;
+        score += 100;
+        spawnScoreParticle(e.x, e.y - 10, '100');
+      } else {
+        killPlayer();
+      }
+    }
+  }
+}
+
+// ============================================================
+// Coin pickup (visible coins 'C')
+// ============================================================
+function updateCoins() {
+  const px = player.x + player.w / 2;
+  const py = player.y + player.h / 2;
+  const tx = Math.floor(px / TILE);
+  const ty = Math.floor(py / TILE);
+
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      const cx = tx + dx;
+      const cy = ty + dy;
+      if (cx < 0 || cy < 0 || cx >= levelWidth || cy >= levelHeight) continue;
+      const t = tiles[cy][cx];
+      if (t.type === 'C' && !t.coinCollected) {
+        const coinBox = { x: cx * TILE + 3, y: cy * TILE + 3, w: 10, h: 10 };
+        const playerBox = { x: player.x + 1, y: player.y, w: player.w - 2, h: player.h };
+        if (boxOverlap(playerBox, coinBox)) {
+          t.coinCollected = true;
+          coins++;
+          score += 50;
+          spawnScoreParticle(cx * TILE, cy * TILE - 10, '50');
+        }
+      }
+    }
+  }
+}
+
+// ============================================================
+// Flag / Goal
+// ============================================================
+function checkGoal() {
+  if (player.winning || player.dead) return;
+  const px = Math.floor((player.x + player.w / 2) / TILE);
+  const py = Math.floor((player.y + player.h / 2) / TILE);
+  for (let dy = -1; dy <= 1; dy++) {
+    const cy = py + dy;
+    if (cy < 0 || cy >= levelHeight) continue;
+    const t = tiles[cy][px];
+    if (t && t.type === 'F') {
+      player.winning = true;
+      player.winSlide = true;
+      player.vx = 0;
+      player.vy = 0;
+      gameState = 'won';
+      winTimer = 120;
+      // Score bonus for remaining time
+      score += timeLeft * 10;
+      return;
+    }
+  }
+}
+
+// ============================================================
+// Particles
+// ============================================================
+function updateParticles() {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.y += p.vy;
+    if (p.type === 'coin') p.vy += 0.2;
+    p.life--;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+}
+
+// ============================================================
+// Tile bump animation
+// ============================================================
+function updateTileAnimations() {
+  for (let y = 0; y < levelHeight; y++) {
+    for (let x = 0; x < levelWidth; x++) {
+      const t = tiles[y][x];
+      if (t.bumped && t.bumpTimer > 0) {
+        t.bumpTimer--;
+        if (t.bumpTimer <= 0) t.bumped = false;
+      }
+    }
+  }
+}
+
+// ============================================================
+// Camera
+// ============================================================
+function updateCamera() {
+  const targetX = player.x - W / 2 + player.w / 2;
+  camera.x += (targetX - camera.x) * 0.1;
+  if (camera.x < 0) camera.x = 0;
+  const maxCam = levelWidth * TILE - W;
+  if (camera.x > maxCam) camera.x = maxCam;
+}
+
+// ============================================================
+// Drawing helpers
+// ============================================================
+function drawRect(x, y, w, h, color) {
+  ctx.fillStyle = color;
+  ctx.fillRect(Math.floor(x - camera.x), Math.floor(y), w, h);
+}
+
+function drawRectAbs(x, y, w, h, color) {
+  ctx.fillStyle = color;
+  ctx.fillRect(x, y, w, h);
+}
+
+// ============================================================
+// Draw tiles
+// ============================================================
+function drawTiles() {
+  const startCol = Math.floor(camera.x / TILE);
+  const endCol = startCol + COLS + 2;
+
+  for (let y = 0; y < levelHeight; y++) {
+    for (let x = startCol; x < endCol && x < levelWidth; x++) {
+      const t = tiles[y][x];
+      const dx = Math.floor(x * TILE - camera.x);
+      let dy = y * TILE;
+      if (t.bumped) dy -= Math.sin(t.bumpTimer / 4 * Math.PI) * 4;
+
+      switch (t.type) {
+        case 'G':
+          if (y > 0 && tiles[y - 1][x] && !'GP'.includes(tiles[y - 1][x].type)) {
+            // Ground top
+            drawRectAbs(dx, dy, TILE, 2, COL.groundTop);
+            drawRectAbs(dx, dy + 2, TILE, TILE - 2, COL.ground);
+          } else {
+            drawRectAbs(dx, dy, TILE, TILE, COL.ground);
+          }
+          break;
+
+        case 'B':
+          ctx.fillStyle = COL.brick;
+          ctx.fillRect(dx, dy, TILE, TILE);
+          ctx.fillStyle = COL.brickLine;
+          ctx.fillRect(dx, dy, TILE, 1);
+          ctx.fillRect(dx, dy + 7, TILE, 1);
+          ctx.fillRect(dx + 7, dy, 1, 8);
+          ctx.fillRect(dx + 3, dy + 8, 1, 8);
+          ctx.fillRect(dx + 11, dy + 8, 1, 8);
+          break;
+
+        case '?':
+          if (t.used) {
+            ctx.fillStyle = COL.qBlockUsed;
+            ctx.fillRect(dx, dy, TILE, TILE);
+            ctx.fillStyle = '#5a3e2e';
+            ctx.fillRect(dx + 1, dy + 1, TILE - 2, TILE - 2);
+          } else {
+            ctx.fillStyle = COL.qBlock;
+            ctx.fillRect(dx, dy, TILE, TILE);
+            ctx.fillStyle = COL.qBlockShine;
+            ctx.fillRect(dx + 2, dy + 2, 2, 2);
+            ctx.fillStyle = COL.white;
+            // Draw "?"
+            ctx.fillRect(dx + 5, dy + 3, 6, 2);
+            ctx.fillRect(dx + 9, dy + 5, 2, 2);
+            ctx.fillRect(dx + 7, dy + 7, 2, 2);
+            ctx.fillRect(dx + 7, dy + 9, 2, 2);
+            ctx.fillRect(dx + 7, dy + 12, 2, 2);
+          }
+          break;
+
+        case 'p': // pipe top
+          ctx.fillStyle = COL.pipe;
+          ctx.fillRect(dx, dy, TILE, TILE);
+          ctx.fillStyle = COL.pipeHighlight;
+          ctx.fillRect(dx, dy, 3, TILE);
+          ctx.fillStyle = COL.pipeDark;
+          ctx.fillRect(dx + TILE - 2, dy, 2, TILE);
+          break;
+
+        case 'P': // pipe body
+          ctx.fillStyle = COL.pipe;
+          ctx.fillRect(dx + 2, dy, TILE - 2, TILE);
+          ctx.fillStyle = COL.pipeHighlight;
+          ctx.fillRect(dx + 2, dy, 2, TILE);
+          ctx.fillStyle = COL.pipeDark;
+          ctx.fillRect(dx + TILE - 2, dy, 2, TILE);
+          break;
+
+        case '|': // flag pole
+          ctx.fillStyle = COL.pole;
+          ctx.fillRect(dx + 7, dy, 2, TILE);
+          break;
+
+        case 'F': // flag
+          ctx.fillStyle = COL.pole;
+          ctx.fillRect(dx + 7, dy, 2, TILE);
+          // Flag cloth
+          if (y <= 7) {
+            ctx.fillStyle = COL.flag;
+            ctx.fillRect(dx - 8, dy, 8, 10);
+            ctx.fillStyle = '#00d800';
+            ctx.fillRect(dx - 6, dy + 2, 4, 6);
+          }
+          break;
+
+        case 'C': // coin
+          if (!t.coinCollected) {
+            const shimmer = Math.sin(Date.now() / 200 + x) * 2;
+            ctx.fillStyle = COL.coinShine;
+            ctx.fillRect(dx + 4 + shimmer, dy + 3, 8 - Math.abs(shimmer), 10);
+            ctx.fillStyle = COL.coin;
+            ctx.fillRect(dx + 5 + shimmer, dy + 4, 6 - Math.abs(shimmer), 8);
+          }
+          break;
+      }
+    }
+  }
+}
+
+// ============================================================
+// Draw player
+// ============================================================
+function drawPlayer() {
+  const px = Math.floor(player.x - camera.x);
+  const py = Math.floor(player.y);
+  const f = player.facing;
+
+  if (player.dead) {
+    // Dead pose
+    ctx.fillStyle = COL.player;
+    ctx.fillRect(px + 2, py, 10, 10);
+    ctx.fillStyle = COL.playerSkin;
+    ctx.fillRect(px + 3, py + 1, 8, 6);
+    return;
+  }
+
+  // Head / hat
+  ctx.fillStyle = COL.player;
+  if (f === 1) {
+    ctx.fillRect(px + 3, py, 10, 3);
+    ctx.fillRect(px + 2, py + 3, 8, 2);
+  } else {
+    ctx.fillRect(px + 1, py, 10, 3);
+    ctx.fillRect(px + 4, py + 3, 8, 2);
+  }
+
+  // Face
+  ctx.fillStyle = COL.playerSkin;
+  ctx.fillRect(px + 3, py + 3, 8, 4);
+
+  // Eyes
+  ctx.fillStyle = COL.black;
+  if (f === 1) {
+    ctx.fillRect(px + 9, py + 3, 2, 2);
+  } else {
+    ctx.fillRect(px + 3, py + 3, 2, 2);
+  }
+
+  // Body
+  ctx.fillStyle = COL.player;
+  ctx.fillRect(px + 3, py + 7, 8, 4);
+
+  // Overalls
+  ctx.fillStyle = '#0000a8';
+  ctx.fillRect(px + 4, py + 8, 6, 3);
+
+  // Legs
+  if (player.frame === 1) {
+    // Walking frame
+    ctx.fillStyle = '#0000a8';
+    ctx.fillRect(px + 2, py + 11, 4, 3);
+    ctx.fillRect(px + 8, py + 11, 4, 3);
+    ctx.fillStyle = COL.playerShoe;
+    ctx.fillRect(px + 1, py + 14, 5, 2);
+    ctx.fillRect(px + 8, py + 14, 5, 2);
+  } else if (player.frame === 2) {
+    // Jump frame
+    ctx.fillStyle = '#0000a8';
+    ctx.fillRect(px + 2, py + 11, 4, 2);
+    ctx.fillRect(px + 8, py + 11, 4, 2);
+    ctx.fillStyle = COL.playerShoe;
+    ctx.fillRect(px + 1, py + 13, 4, 2);
+    ctx.fillRect(px + 9, py + 13, 4, 2);
+  } else {
+    // Standing
+    ctx.fillStyle = '#0000a8';
+    ctx.fillRect(px + 3, py + 11, 4, 3);
+    ctx.fillRect(px + 7, py + 11, 4, 3);
+    ctx.fillStyle = COL.playerShoe;
+    ctx.fillRect(px + 2, py + 14, 5, 2);
+    ctx.fillRect(px + 7, py + 14, 5, 2);
+  }
+}
+
+// ============================================================
+// Draw enemies
+// ============================================================
+function drawEnemies() {
+  for (const e of enemies) {
+    if (!e.alive && e.squishTimer <= 0) continue;
+    const ex = Math.floor(e.x - camera.x);
+    const ey = Math.floor(e.y);
+
+    if (!e.alive) {
+      // Squished
+      ctx.fillStyle = COL.goomba;
+      ctx.fillRect(ex, ey + 10, 14, 4);
+      ctx.fillStyle = COL.goombaDark;
+      ctx.fillRect(ex + 2, ey + 11, 10, 2);
+      continue;
+    }
+
+    // Body
+    ctx.fillStyle = COL.goomba;
+    ctx.fillRect(ex + 2, ey, 10, 8);
+    ctx.fillRect(ex, ey + 3, 14, 6);
+
+    // Face
+    ctx.fillStyle = COL.white;
+    ctx.fillRect(ex + 2, ey + 4, 4, 3);
+    ctx.fillRect(ex + 8, ey + 4, 4, 3);
+    ctx.fillStyle = COL.black;
+    ctx.fillRect(ex + 4, ey + 5, 2, 2);
+    ctx.fillRect(ex + 9, ey + 5, 2, 2);
+
+    // Feet
+    ctx.fillStyle = COL.goombaDark;
+    const walkFrame = Math.floor(Date.now() / 200) % 2;
+    if (walkFrame === 0) {
+      ctx.fillRect(ex, ey + 10, 5, 4);
+      ctx.fillRect(ex + 9, ey + 10, 5, 4);
+    } else {
+      ctx.fillRect(ex + 1, ey + 10, 5, 4);
+      ctx.fillRect(ex + 8, ey + 10, 5, 4);
+    }
+  }
+}
+
+// ============================================================
+// Draw particles
+// ============================================================
+function drawParticles() {
+  for (const p of particles) {
+    const px = Math.floor(p.x - camera.x);
+    const py = Math.floor(p.y);
+    if (p.type === 'coin') {
+      ctx.fillStyle = COL.coinShine;
+      ctx.fillRect(px + 2, py, 8, 12);
+      ctx.fillStyle = COL.coin;
+      ctx.fillRect(px + 3, py + 1, 6, 10);
+    } else if (p.type === 'score') {
+      ctx.fillStyle = COL.white;
+      ctx.font = '8px monospace';
+      ctx.fillText(p.text, px, py);
+    }
+  }
+}
+
+// ============================================================
+// Draw HUD
+// ============================================================
+function drawHUD() {
+  ctx.fillStyle = COL.white;
+  ctx.font = '10px monospace';
+
+  ctx.fillText('SCORE', 16, 14);
+  ctx.fillText(String(score).padStart(6, '0'), 16, 24);
+
+  ctx.fillText('COINS', 100, 14);
+  ctx.fillText('x' + String(coins).padStart(2, '0'), 100, 24);
+
+  ctx.fillText('TIME', W - 60, 14);
+  ctx.fillText(String(Math.max(0, timeLeft)).padStart(3, '0'), W - 52, 24);
+
+  if (gameState === 'won') {
+    ctx.fillStyle = COL.white;
+    ctx.font = '14px monospace';
+    const text = 'STAGE CLEAR!';
+    ctx.fillText(text, W / 2 - 42, H / 2 - 10);
+    ctx.font = '10px monospace';
+    ctx.fillText('TIME BONUS: ' + timeLeft * 10, W / 2 - 45, H / 2 + 10);
+  }
+
+  if (gameState === 'gameover') {
+    ctx.fillStyle = COL.white;
+    ctx.font = '14px monospace';
+    ctx.fillText('GAME OVER', W / 2 - 34, H / 2);
+    ctx.font = '10px monospace';
+    ctx.fillText('Press ENTER to retry', W / 2 - 56, H / 2 + 20);
+  }
+}
+
+// ============================================================
+// Reset game
+// ============================================================
+function resetGame() {
+  player.x = 3 * TILE;
+  player.y = 10 * TILE;
+  player.vx = 0;
+  player.vy = 0;
+  player.dead = false;
+  player.winning = false;
+  player.winSlide = false;
+  player.onGround = false;
+  player.frame = 0;
+  camera.x = 0;
+  score = 0;
+  coins = 0;
+  timeLeft = TIME_LIMIT;
+  timeAccum = 0;
+  gameState = 'playing';
+  deathTimer = 0;
+  winTimer = 0;
+  particles = [];
+
+  // Reset tiles
+  for (let y = 0; y < levelHeight; y++) {
+    for (let x = 0; x < levelWidth; x++) {
+      tiles[y][x].used = false;
+      tiles[y][x].bumped = false;
+      tiles[y][x].bumpTimer = 0;
+      tiles[y][x].coinCollected = false;
+    }
+  }
+
+  // Reset enemies
+  enemies = ENEMY_SPAWNS.map(s => ({
+    x: s.x * TILE, y: s.y * TILE,
+    vx: -ENEMY_SPEED,
+    w: 14, h: 14,
+    alive: true,
+    squishTimer: 0,
+  }));
+}
+
+// ============================================================
+// Game loop
+// ============================================================
+function gameLoop() {
+  // Update
+  if (gameState === 'playing') {
+    updatePlayer();
+    updateEnemies();
+    updateCoins();
+    checkGoal();
+    updateCamera();
+
+    // Timer
+    timeAccum++;
+    if (timeAccum >= 60) {
+      timeAccum = 0;
+      timeLeft--;
+      if (timeLeft <= 0) {
+        killPlayer();
+      }
+    }
+  } else if (gameState === 'dead') {
+    updatePlayer();
+    deathTimer--;
+    if (deathTimer <= 0) {
+      gameState = 'gameover';
+    }
+  } else if (gameState === 'won') {
+    updatePlayer();
+    winTimer--;
+  } else if (gameState === 'gameover') {
+    if (keys['Enter']) {
+      resetGame();
+    }
+  }
+
+  updateParticles();
+  updateTileAnimations();
+
+  // Draw
+  ctx.fillStyle = COL.sky;
+  ctx.fillRect(0, 0, W, H);
+
+  drawTiles();
+  drawEnemies();
+  drawPlayer();
+  drawParticles();
+  drawHUD();
+
+  requestAnimationFrame(gameLoop);
+}
+
+// ============================================================
+// Start
+// ============================================================
+gameLoop();
+</script>
+</body>
+</html>
