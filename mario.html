@@ -767,13 +767,15 @@ function drawHUD() {
   if (gameState === 'won') {
     ctx.fillStyle = COL.white;
     ctx.font = '14px monospace';
-    const text = 'STAGE CLEAR!';
-    ctx.fillText(text, W / 2 - 42, H / 2 - 10);
+    ctx.fillText('STAGE CLEAR!', W / 2 - 42, H / 2 - 10);
     ctx.font = '10px monospace';
     ctx.fillText('TIME BONUS: ' + timeLeft * 10, W / 2 - 45, H / 2 + 10);
+    if (winTimer <= 0) {
+      ctx.fillText('Press ENTER to replay', W / 2 - 58, H / 2 + 30);
+    }
   }
 
-  if (gameState === 'gameover') {
+  if (gameState === 'dead' || gameState === 'gameover') {
     ctx.fillStyle = COL.white;
     ctx.font = '14px monospace';
     ctx.fillText('GAME OVER', W / 2 - 34, H / 2);
@@ -852,9 +854,15 @@ function gameLoop() {
     if (deathTimer <= 0) {
       gameState = 'gameover';
     }
+    if (keys['Enter']) {
+      resetGame();
+    }
   } else if (gameState === 'won') {
     updatePlayer();
     winTimer--;
+    if (winTimer <= 0 && keys['Enter']) {
+      resetGame();
+    }
   } else if (gameState === 'gameover') {
     if (keys['Enter']) {
       resetGame();
